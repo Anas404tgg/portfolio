@@ -1,43 +1,75 @@
-# Astro Starter Kit: Minimal
+# Portfolio — Anas Boulif
 
-```sh
-npm create astro@latest -- --template minimal
-```
+> **Live:** [https://portfolio-anas-boulif.vercel.app](https://portfolio-anas-boulif.vercel.app)
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+Portfolio personnel moderne construit avec **Astro** et déployé sur **Vercel**. Thème sombre professionnel avec glassmorphism, animations fluides et design responsive.
 
-## 🚀 Project Structure
-
-Inside of your Astro project, you'll see the following folders and files:
+## Structure du projet
 
 ```text
 /
-├── public/
+├── public/                  # Fichiers statiques (favicon, images)
 ├── src/
+│   ├── components/          # Composants Astro réutilisables
+│   │   ├── Header.astro     # Navigation sticky glassmorphism
+│   │   ├── Hero.astro       # Section héro plein écran
+│   │   ├── About.astro      # Cartes numérotées "À propos"
+│   │   ├── Skills.astro     # Grille compétences techniques & soft
+│   │   ├── Education.astro  # Timeline parcours académique
+│   │   ├── Projects.astro   # Grille de projets avec tags
+│   │   ├── Contact.astro    # Formulaire + infos de contact
+│   │   ├── Footer.astro     # Pied de page 3 colonnes
+│   │   └── BackToTop.astro  # Bouton retour en haut
+│   ├── data/
+│   │   └── portfolio.ts     # 📝 FICHIER UNIQUE DE DONNÉES
+│   ├── layouts/
+│   │   └── BaseLayout.astro # Layout principal (HTML, styles globaux)
 │   └── pages/
-│       └── index.astro
+│       └── index.astro      # Page d'entrée assemblant les sections
+├── astro.config.mjs         # Configuration Astro + adaptateur Vercel
+├── vercel.json              # Alias Vercel personnalisé
 └── package.json
 ```
 
-Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
+## Modifier le contenu
 
-There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
+Toutes les informations du portfolio se trouvent dans un **seul fichier** :
 
-Any static assets, like images, can be placed in the `public/` directory.
+```
+src/data/portfolio.ts
+```
 
-## 🧞 Commands
+Modifiez ce fichier pour mettre à jour :
+- Informations personnelles (nom, titre, email, photo…)
+- Statistiques clés
+- Paragraphes "À propos"
+- Compétences techniques et soft skills
+- Parcours académique
+- Expériences professionnelles (optionnel)
+- Publications (optionnel)
+- Certifications (optionnel)
+- Projets
+- Liens sociaux
 
-All commands are run from the root of the project, from a terminal:
+Les sections sans données sont **automatiquement masquées** du site et de la navigation.
 
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
+## Commandes
 
-## 👀 Want to learn more?
+| Commande              | Action                                              |
+| :-------------------- | :-------------------------------------------------- |
+| `npm install`         | Installe les dépendances                            |
+| `npm run dev`         | Lance le serveur de dev à `localhost:4321`           |
+| `npm run build`       | Build le site statique dans `./dist/`               |
+| `npm run preview`     | Prévisualise le build localement                    |
+| `vercel --yes --prod` | Déploie en production sur Vercel                    |
 
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+## Technologies
+
+- [Astro](https://astro.build) — Framework web statique
+- [TypeScript](https://www.typescriptlang.org) — Typage fort
+- [Vercel](https://vercel.com) — Hébergement et déploiement
+- Icônes [Lucide](https://lucide.dev) — SVG inline (pas de dépendance)
+
+## Licence
+
+MIT
