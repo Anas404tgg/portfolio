@@ -1,0 +1,36 @@
+---
+/**
+ * index.astro
+ * ============
+ * Entry page — assembles only the sections that have data into
+ * the BaseLayout slot. Header and Footer are rendered by the layout.
+ */
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Hero from '../components/Hero.astro';
+import About from '../components/About.astro';
+import Skills from '../components/Skills.astro';
+import Education from '../components/Education.astro';
+import Projects from '../components/Projects.astro';
+import Contact from '../components/Contact.astro';
+
+import {
+  aboutParagraphs,
+  technicalSkills,
+  education,
+  experiences,
+  publications,
+  certifications,
+  projects,
+} from '../data/portfolio';
+---
+
+<BaseLayout>
+  <Hero />
+
+  {aboutParagraphs.length > 0 && <About />}
+  {technicalSkills.length > 0 && <Skills />}
+  {education.length > 0 && <Education />}
+
+  {projects.length > 0 && <Projects />}
+  <Contact />
+</BaseLayout>

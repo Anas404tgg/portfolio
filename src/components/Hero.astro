@@ -1,0 +1,339 @@
+---
+/**
+ * Hero.astro
+ * ==========
+ * Full-height hero section with animated gradient name, profile photo
+ * in a hue-rotating ring, availability badge with pulsing dot,
+ * action buttons, social pills, stats bar, and scroll indicator.
+ */
+import { personalInfo, stats, socialLinks, projects, publications } from '../data/portfolio';
+
+const icons: Record<string, string> = {
+  'github':   '<path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/>',
+  'mail':     '<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
+  'linkedin': '<path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect width="4" height="12" x="2" y="9"/><circle cx="4" cy="4" r="2"/>',
+  'arrow-down':'<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>',
+  'folder-open':'<path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>',
+  'send':     '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
+  'download': '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
+};
+
+/* Build action buttons dynamically */
+const actionButtons: { label: string; href: string; icon: string; primary?: boolean }[] = [
+  { label: 'Voir mes Projets', href: '#projects', icon: 'folder-open', primary: true },
+  { label: 'Me Contacter', href: '#contact', icon: 'send' },
+];
+---
+
+<section id="hero" class="hero">
+  <div class="hero__inner container">
+    <!-- Text content -->
+    <div class="hero__content">
+      <!-- Availability badge -->
+      <div class="hero__badge reveal">
+        <span class="hero__badge-dot"></span>
+        {personalInfo.availabilityBadge}
+      </div>
+
+      <h1 class="hero__name reveal">
+        <span class="gradient-text">{personalInfo.firstName} {personalInfo.lastName}</span>
+      </h1>
+
+      <p class="hero__title reveal">{personalInfo.title}</p>
+      <p class="hero__subtitle reveal">{personalInfo.subtitle}</p>
+
+      <!-- Action buttons -->
+      <div class="hero__actions reveal">
+        {actionButtons.map((btn) => (
+          <a href={btn.href} class:list={['hero__btn', { 'hero__btn--primary': btn.primary }]}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <Fragment set:html={icons[btn.icon] || ''} />
+            </svg>
+            {btn.label}
+          </a>
+        ))}
+      </div>
+
+      <!-- Social pills -->
+      <div class="hero__social reveal">
+        {socialLinks.map((link) => (
+          <a href={link.url} target="_blank" rel="noopener noreferrer" class="hero__pill">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <Fragment set:html={icons[link.icon] || ''} />
+            </svg>
+            {link.label}
+          </a>
+        ))}
+      </div>
+    </div>
+
+    <!-- Profile photo -->
+    <div class="hero__photo-wrap reveal">
+      <div class="hero__photo-ring">
+        <img
+          src={personalInfo.avatarUrl}
+          alt={`Photo de ${personalInfo.firstName} ${personalInfo.lastName}`}
+          class="hero__photo"
+          width="280"
+          height="280"
+          loading="eager"
+        />
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats bar -->
+  <div class="hero__stats container reveal">
+    {stats.map((s) => (
+      <div class="hero__stat">
+        <span class="hero__stat-value gradient-text">{s.value}</span>
+        <span class="hero__stat-label">{s.label}</span>
+      </div>
+    ))}
+  </div>
+
+  <!-- Scroll indicator -->
+  <div class="hero__scroll reveal" aria-hidden="true">
+    <div class="hero__mouse">
+      <div class="hero__mouse-wheel"></div>
+    </div>
+    <span class="hero__scroll-text">Scroll</span>
+  </div>
+</section>
+
+<style>
+  /* ── Hero section ───────────────────────────────────── */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 7rem 0 3rem;
+    position: relative;
+  }
+
+  .hero__inner {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 3rem;
+  }
+
+  /* ── Text content ───────────────────────────────────── */
+  .hero__content {
+    max-width: 640px;
+  }
+
+  .hero__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .4rem 1rem;
+    border-radius: 999px;
+    background: rgba(52, 211, 153, .08);
+    border: 1px solid rgba(52, 211, 153, .2);
+    font-size: .85rem;
+    color: var(--color-success);
+    margin-bottom: 1.5rem;
+  }
+  .hero__badge-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--color-success);
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+  @keyframes pulse-dot {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(52,211,153,.5); }
+    50%      { box-shadow: 0 0 0 6px rgba(52,211,153,0); }
+  }
+
+  .hero__name {
+    font-size: clamp(2.5rem, 6vw, 4rem);
+    font-weight: 900;
+    line-height: 1.1;
+    margin-bottom: .75rem;
+  }
+
+  .hero__title {
+    font-size: clamp(1.1rem, 2.5vw, 1.35rem);
+    color: var(--color-accent);
+    font-weight: 600;
+    margin-bottom: .75rem;
+  }
+
+  .hero__subtitle {
+    font-size: 1rem;
+    color: var(--color-text-muted);
+    line-height: 1.7;
+    margin-bottom: 2rem;
+    max-width: 540px;
+  }
+
+  /* ── Actions ────────────────────────────────────────── */
+  .hero__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .75rem;
+    margin-bottom: 1.5rem;
+  }
+  .hero__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .7rem 1.4rem;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    font-size: .9rem;
+    text-decoration: none;
+    transition: transform .2s, box-shadow .2s;
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+    background: rgba(17,24,39,.5);
+  }
+  .hero__btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    text-decoration: none;
+  }
+  .hero__btn--primary {
+    background: var(--gradient);
+    border: none;
+    color: #fff;
+  }
+  .hero__btn--primary:hover {
+    box-shadow: var(--shadow-glow);
+  }
+  .hero__btn svg { width: 18px; height: 18px; }
+
+  /* ── Social pills ───────────────────────────────────── */
+  .hero__social {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+  }
+  .hero__pill {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .35rem .85rem;
+    border-radius: 999px;
+    background: rgba(17,24,39,.4);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--color-border);
+    font-size: .82rem;
+    color: var(--color-text-muted);
+    text-decoration: none;
+    transition: color .2s, border-color .2s, transform .2s;
+  }
+  .hero__pill:hover {
+    color: var(--color-accent);
+    border-color: var(--color-accent);
+    transform: translateY(-2px);
+    text-decoration: none;
+  }
+  .hero__pill svg { width: 15px; height: 15px; }
+
+  /* ── Photo ──────────────────────────────────────────── */
+  .hero__photo-wrap {
+    display: flex;
+    justify-content: center;
+  }
+  .hero__photo-ring {
+    width: 280px;
+    height: 280px;
+    border-radius: 50%;
+    padding: 5px;
+    background: var(--gradient);
+    animation: hue-spin 8s linear infinite;
+    transition: transform .4s cubic-bezier(.34,1.56,.64,1);
+  }
+  .hero__photo-ring:hover {
+    transform: scale(1.05);
+  }
+  @keyframes hue-spin {
+    0%   { filter: hue-rotate(0deg); }
+    100% { filter: hue-rotate(360deg); }
+  }
+  .hero__photo {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 4px solid var(--color-bg);
+  }
+
+  /* ── Stats bar ──────────────────────────────────────── */
+  .hero__stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--color-border);
+  }
+  .hero__stat {
+    text-align: center;
+  }
+  .hero__stat-value {
+    display: block;
+    font-size: 1.8rem;
+    font-weight: 800;
+  }
+  .hero__stat-label {
+    font-size: .8rem;
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+  }
+
+  /* ── Scroll indicator ───────────────────────────────── */
+  .hero__scroll {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .5rem;
+    margin-top: 2.5rem;
+  }
+  .hero__mouse {
+    width: 24px;
+    height: 38px;
+    border-radius: 12px;
+    border: 2px solid var(--color-text-muted);
+    display: flex;
+    justify-content: center;
+    padding-top: 6px;
+  }
+  .hero__mouse-wheel {
+    width: 3px;
+    height: 8px;
+    border-radius: 3px;
+    background: var(--color-accent);
+    animation: scroll-wheel 2s ease-in-out infinite;
+  }
+  @keyframes scroll-wheel {
+    0%   { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(10px); }
+  }
+  .hero__scroll-text {
+    font-size: .7rem;
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    letter-spacing: .1em;
+    text-transform: uppercase;
+  }
+
+  /* ── Responsive ─────────────────────────────────────── */
+  @media (max-width: 768px) {
+    .hero { padding: 6rem 0 2rem; }
+    .hero__inner {
+      grid-template-columns: 1fr;
+      text-align: center;
+    }
+    .hero__photo-wrap { order: -1; }
+    .hero__photo-ring { width: 200px; height: 200px; }
+    .hero__content { max-width: 100%; }
+    .hero__subtitle { margin-left: auto; margin-right: auto; }
+    .hero__actions { justify-content: center; }
+    .hero__social { justify-content: center; }
+    .hero__stats { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
