@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://portfolio-anas-boulif.vercel.app/sitemap-index.xml
