@@ -1,0 +1,128 @@
+---
+/**
+ * About.astro
+ * ============
+ * Two-column grid of numbered glassmorphism cards with vertical accent bar,
+ * staggered reveal animations.
+ */
+import { aboutParagraphs, personalInfo } from '../data/portfolio';
+---
+
+<section id="about" class="section">
+  <div class="container">
+    <div class="section__header reveal">
+      <p class="section__label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px">
+          <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+        </svg>
+        <span data-i18n="about.label">About</span>
+      </p>
+      <h2 class="section__title" data-i18n="about.title">Get to Know Me</h2>
+      <div class="section__divider"></div>
+    </div>
+
+    <div class="about__intro reveal">
+      <div class="about__photo-ring">
+        <img
+          src={personalInfo.avatarUrl}
+          alt={`${personalInfo.firstName} ${personalInfo.lastName}`}
+          class="about__photo"
+          width="180"
+          height="180"
+          loading="lazy"
+        />
+      </div>
+    </div>
+
+    <div class="about__grid stagger">
+      {aboutParagraphs.map((p, i) => (
+        <div class="about__card glass-card reveal">
+          <div class="about__accent"></div>
+          <span class="about__number">{String(i + 1).padStart(2, '0')}</span>
+          <p class="about__text" data-i18n={`about.p.${i}`}>{p.text}</p>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .about__intro {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 2.5rem;
+  }
+
+  .about__photo-ring {
+    position: relative;
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    padding: 4px;
+  }
+
+  .about__photo-ring::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: var(--gradient);
+    animation: about-hue 8s linear infinite;
+    z-index: 0;
+  }
+
+  @keyframes about-hue {
+    0%   { filter: hue-rotate(0deg); }
+    100% { filter: hue-rotate(360deg); }
+  }
+
+  .about__photo {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--color-bg);
+  }
+
+  .about__grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+  }
+
+  .about__card {
+    padding: 1.75rem 1.75rem 1.75rem 2.25rem;
+    position: relative;
+  }
+
+  .about__accent {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 4px;
+    background: var(--gradient);
+    border-radius: 4px 0 0 4px;
+  }
+
+  .about__number {
+    font-family: var(--font-mono);
+    font-size: .8rem;
+    color: var(--color-accent);
+    opacity: .6;
+    display: block;
+    margin-bottom: .5rem;
+  }
+
+  .about__text {
+    color: var(--color-text-muted);
+    font-size: .95rem;
+    line-height: 1.75;
+  }
+
+  @media (max-width: 768px) {
+    .about__grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

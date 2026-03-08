@@ -1,0 +1,180 @@
+---
+/**
+ * Publications.astro
+ * ==================
+ * Academic publications section with:
+ * - First Author / Co-Author visual distinction
+ * - Student name auto-highlighted in author list
+ * - Links to academic profiles (Scholar, ResearchGate, ORCID)
+ * - Scroll-reveal stagger animation
+ *
+ * Hidden automatically when publications[] is empty.
+ */
+import { publications, personalInfo } from '../data/portfolio';
+
+const icons: Record<string, string> = {
+  'book-open':     '<path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/>',
+  'external-link': '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+  'user':          '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  'users':         '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+};
+
+const fullName = `${personalInfo.firstName} ${personalInfo.lastName}`;
+
+/** Highlight the student's name in author string */
+function highlightAuthor(authors: string): string {
+  const escaped = fullName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return authors.replace(
+    new RegExp(`(${escaped})`, 'gi'),
+    '<mark class="pub__author-highlight">$1</mark>'
+  );
+}
+---
+
+{publications.length > 0 && (
+<section id="publications" class="section">
+  <div class="container">
+    <div class="section__header reveal">
+      <p class="section__label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px">
+          <Fragment set:html={icons['book-open']} />
+        </svg>
+        Publications
+      </p>
+      <h2 class="section__title">Research & Publications</h2>
+      <div class="section__divider"></div>
+    </div>
+
+    <div class="pub-grid">
+      {publications.map((pub, i) => (
+        <article class={`pub-card glass-card reveal stagger-${(i % 4) + 1}`}>
+          <div class="pub-card__role-tag" data-role={pub.role}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px">
+              <Fragment set:html={pub.role === 'first' ? icons['user'] : icons['users']} />
+            </svg>
+            {pub.role === 'first' ? 'First Author' : 'Co-Author'}
+          </div>
+
+          <h3 class="pub-card__title">{pub.title}</h3>
+          <p class="pub-card__authors" set:html={highlightAuthor(pub.authors)} />
+
+          <div class="pub-card__meta">
+            <span class="pub-card__venue">{pub.journal}</span>
+            <span class="pub-card__year">{pub.year}</span>
+          </div>
+
+          {pub.doi && (
+            <a href={pub.doi} class="pub-card__link" target="_blank" rel="noopener noreferrer">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><Fragment set:html={icons['external-link']} /></svg>
+              View Paper
+            </a>
+          )}
+        </article>
+      ))}
+    </div>
+  </div>
+</section>
+)}
+
+<style>
+  .pub-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 1.25rem;
+  }
+
+  .pub-card {
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: .65rem;
+    position: relative;
+    transition: transform .3s, box-shadow .3s;
+  }
+  .pub-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px var(--color-shadow-hover);
+  }
+
+  /* ── Role tag ───────────────────────────────────────── */
+  .pub-card__role-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    width: fit-content;
+    padding: .2rem .65rem;
+    border-radius: 999px;
+    font-size: .72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+  .pub-card__role-tag[data-role="first"] {
+    background: var(--color-success-subtle);
+    border: 1px solid var(--color-success-subtle-border);
+    color: var(--color-success);
+  }
+  .pub-card__role-tag[data-role="co"] {
+    background: var(--color-accent-subtle);
+    border: 1px solid var(--color-accent-subtle-border);
+    color: var(--color-accent);
+  }
+
+  .pub-card__title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--color-text-heading);
+    line-height: 1.4;
+  }
+  .pub-card__authors {
+    font-size: .85rem;
+    color: var(--color-text-muted);
+    line-height: 1.5;
+  }
+  .pub-card__authors :global(.pub__author-highlight) {
+    background: var(--color-accent-subtle);
+    color: var(--color-accent);
+    padding: .05rem .3rem;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+
+  .pub-card__meta {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    flex-wrap: wrap;
+    margin-top: auto;
+  }
+  .pub-card__venue {
+    font-size: .82rem;
+    color: var(--color-text-muted);
+    font-style: italic;
+  }
+  .pub-card__year {
+    padding: .15rem .5rem;
+    border-radius: 999px;
+    background: var(--color-accent-subtle);
+    border: 1px solid var(--color-accent-subtle-border);
+    font-family: var(--font-mono);
+    font-size: .72rem;
+    color: var(--color-text-muted);
+  }
+
+  .pub-card__link {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    font-size: .82rem;
+    color: var(--color-accent);
+    text-decoration: none;
+    transition: color .2s;
+  }
+  .pub-card__link:hover { color: var(--color-text-heading); text-decoration: none; }
+
+  @media (max-width: 768px) {
+    .pub-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

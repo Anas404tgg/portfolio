@@ -1,0 +1,392 @@
+---
+/**
+ * Contact.astro
+ * ==============
+ * Two-column layout: info cards + functional contact form
+ * using formsubmit.co, social link squares, and input glow effects.
+ */
+import { personalInfo, socialLinks } from '../data/portfolio';
+
+const icons: Record<string, string> = {
+  'mail':       '<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
+  'phone':      '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>',
+  'map-pin':    '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+  'send':       '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
+  'github':     '<path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/>',
+  'linkedin':   '<path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect width="4" height="12" x="2" y="9"/><circle cx="4" cy="4" r="2"/>',
+  'message-circle': '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',
+};
+
+const contactCards = [
+  { icon: 'mail', label: 'Email', value: personalInfo.emails[0], href: `mailto:${personalInfo.emails[0]}` },
+  { icon: 'map-pin', label: 'Location', value: personalInfo.location },
+];
+
+/* Use the first email for formsubmit.
+ * NOTE: To hide the email from HTML source, register at formsubmit.co
+ * and replace the email below with the hashed token they provide.
+ * Example: const formAction = 'https://formsubmit.co/your-hashed-token'; */
+const formAction = `https://formsubmit.co/${personalInfo.emails[0]}`;
+---
+
+<section id="contact" class="section">
+  <div class="container">
+    <div class="section__header reveal">
+      <p class="section__label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px">
+          <Fragment set:html={icons['send']} />
+        </svg>
+        <span data-i18n="contact.label">Contact</span>
+      </p>
+      <h2 class="section__title" data-i18n="contact.title">Get in Touch</h2>
+      <div class="section__divider"></div>
+    </div>
+
+    <div class="contact__grid">
+      <!-- Info column -->
+      <div class="contact__info reveal">
+        {contactCards.map((card) => (
+          <div class="contact__card glass-card">
+            <div class="contact__icon-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="contact__icon">
+                <Fragment set:html={icons[card.icon] || ''} />
+              </svg>
+            </div>
+            <div>
+              <span class="contact__card-label" data-i18n={card.icon === 'mail' ? 'contact.emailLabel' : 'contact.locationLabel'}>{card.label}</span>
+              {card.href ? (
+                <a href={card.href} class="contact__card-value">{card.value}</a>
+              ) : (
+                <p class="contact__card-value">{card.value}</p>
+              )}
+            </div>
+          </div>
+        ))}
+
+        <!-- Social links row -->
+        <div class="contact__social">
+          {socialLinks.map((link) => (
+            <a href={link.url} target="_blank" rel="noopener noreferrer" class="contact__social-btn" aria-label={link.label}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <Fragment set:html={icons[link.icon] || ''} />
+              </svg>
+            </a>
+          ))}
+        </div>
+      </div>
+
+      <!-- Form column -->
+      <form class="contact__form glass-card reveal" id="contactForm" action={formAction} method="POST">
+        <!-- Honeypot (double layer) & settings -->
+        <input type="hidden" name="_captcha" value="false" />
+        <input type="hidden" name="_template" value="table" />
+        <input type="text" name="_honey" style="display:none" tabindex="-1" autocomplete="off" />
+        <!-- Second honeypot with CSS-hidden field -->
+        <div class="contact__hp" aria-hidden="true">
+          <label for="website">Website</label>
+          <input type="text" id="website" name="website" tabindex="-1" autocomplete="off" />
+        </div>
+
+        <div class="contact__field">
+          <label for="name" class="contact__label" data-i18n="contact.nameLabel">Name</label>
+          <input type="text" id="name" name="name" required class="contact__input" placeholder="Your name" data-i18n-placeholder="contact.namePlaceholder" />
+        </div>
+        <div class="contact__field">
+          <label for="email" class="contact__label" data-i18n="contact.emailFieldLabel">Email</label>
+          <input type="email" id="email" name="email" required class="contact__input" placeholder="your@email.com" data-i18n-placeholder="contact.emailPlaceholder" />
+        </div>
+        <div class="contact__field">
+          <label for="subject" class="contact__label" data-i18n="contact.subjectLabel">Subject</label>
+          <input type="text" id="subject" name="_subject" required class="contact__input" placeholder="Subject" data-i18n-placeholder="contact.subjectPlaceholder" />
+        </div>
+        <div class="contact__field">
+          <label for="message" class="contact__label" data-i18n="contact.messageLabel">Message</label>
+          <textarea id="message" name="message" rows="5" required class="contact__input contact__textarea" placeholder="Your message…" data-i18n-placeholder="contact.messagePlaceholder"></textarea>
+        </div>
+        <button type="submit" class="contact__submit" id="contactSubmitBtn">
+          <span class="contact__submit-text">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <Fragment set:html={icons['send']} />
+            </svg>
+            <span data-i18n="contact.send">Send</span>
+          </span>
+          <span class="contact__submit-spinner"></span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast overlay -->
+  <div class="contact__toast" id="contactToast" aria-live="polite">
+    <div class="contact__toast-icon" id="contactToastIcon"></div>
+    <span class="contact__toast-msg" id="contactToastMsg"></span>
+  </div>
+</section>
+
+<!-- Contact form script: AJAX submit with toast + spinner -->
+<script>
+(function () {
+  const form = /** @type {HTMLFormElement|null} */ (document.getElementById('contactForm'));
+  const btn = /** @type {HTMLButtonElement|null} */ (document.getElementById('contactSubmitBtn'));
+  const toast = document.getElementById('contactToast');
+  const toastIcon = document.getElementById('contactToastIcon');
+  const toastMsg = document.getElementById('contactToastMsg');
+  const hp = /** @type {HTMLInputElement|null} */ (document.getElementById('website'));
+
+  if (!form || !btn || !toast || !toastIcon || !toastMsg) return;
+
+  /** i18n helper — resolve translation key or return key as fallback */
+  function t(key) {
+    return (window.__i18n && window.__i18n.t) ? window.__i18n.t(key) : key;
+  }
+
+  /* SAFE innerHTML: hardcoded SVG strings, no user input */
+  function showToast(type, msg) {
+    toastIcon.innerHTML = type === 'success'
+      ? '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>'
+      : '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+    toastMsg.textContent = msg;
+    toast.classList.remove('contact__toast--success', 'contact__toast--error');
+    toast.classList.add('contact__toast--visible', `contact__toast--${type}`);
+    setTimeout(() => toast.classList.remove('contact__toast--visible'), 4000);
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    /* Honeypot check */
+    if (hp && hp.value) return;
+
+    btn.classList.add('contact__submit--loading');
+    btn.disabled = true;
+
+    try {
+      const data = new FormData(form);
+      const res = await fetch(form.action, { method: 'POST', body: data, headers: { 'Accept': 'application/json' } });
+      if (res.ok) {
+        showToast('success', t('contact.success'));
+        form.reset();
+      } else {
+        showToast('error', t('contact.error'));
+      }
+    } catch {
+      showToast('error', t('contact.error'));
+    } finally {
+      btn.classList.remove('contact__submit--loading');
+      btn.disabled = false;
+    }
+  });
+})();
+</script>
+
+<style>
+  .contact__grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    align-items: start;
+  }
+
+  /* ── Info column ────────────────────────────────────── */
+  .contact__info {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .contact__card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.25rem;
+  }
+
+  .contact__icon-wrap {
+    width: 46px; height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    background: var(--color-accent-subtle);
+    border: 1px solid var(--color-accent-subtle-border);
+    flex-shrink: 0;
+    transition: transform .3s, box-shadow .3s;
+  }
+  .contact__card:hover .contact__icon-wrap {
+    transform: scale(1.1);
+    box-shadow: 0 0 20px var(--color-accent-glow);
+  }
+  .contact__icon { width: 22px; height: 22px; color: var(--color-accent); }
+
+  .contact__card-label {
+    display: block;
+    font-size: .75rem;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--color-text-muted);
+    margin-bottom: .15rem;
+  }
+  .contact__card-value {
+    font-size: .92rem;
+    color: var(--color-text-heading);
+    font-weight: 500;
+  }
+  a.contact__card-value {
+    text-decoration: none;
+    transition: color .2s;
+  }
+  a.contact__card-value:hover { color: var(--color-accent); text-decoration: none; }
+
+  /* Social squares */
+  .contact__social {
+    display: flex;
+    gap: .75rem;
+    margin-top: .5rem;
+  }
+  .contact__social-btn {
+    width: 46px; height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-elevated);
+    color: var(--color-text-muted);
+    transition: color .2s, border-color .2s, transform .25s, box-shadow .25s;
+  }
+  .contact__social-btn svg { width: 20px; height: 20px; }
+  .contact__social-btn:hover {
+    color: var(--color-accent);
+    border-color: var(--color-accent);
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-md);
+  }
+
+  /* ── Form column ────────────────────────────────────── */
+  .contact__form {
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .contact__field { display: flex; flex-direction: column; gap: .35rem; }
+
+  .contact__label {
+    font-size: .72rem;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--color-text-muted);
+    font-weight: 600;
+  }
+
+  .contact__input {
+    background: var(--color-bg-input);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: .7rem 1rem;
+    font-size: .9rem;
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    transition: border-color .2s, box-shadow .2s;
+    outline: none;
+  }
+  .contact__input::placeholder { color: var(--color-text-muted); opacity: .4; }
+  .contact__input:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-focus-ring);
+  }
+
+  .contact__textarea { resize: vertical; min-height: 120px; }
+
+  .contact__submit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem;
+    padding: .75rem 1.5rem;
+    background: var(--gradient);
+    border: none;
+    border-radius: var(--radius-sm);
+    color: #fff;
+    font-size: .9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: box-shadow .3s, transform .2s;
+    font-family: var(--font-sans);
+    position: relative;
+    min-width: 120px;
+    min-height: 44px;
+  }
+  .contact__submit svg { width: 18px; height: 18px; }
+  .contact__submit:hover {
+    box-shadow: 0 0 30px var(--color-accent-glow);
+    transform: translateY(-2px);
+  }
+  .contact__submit-text {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    transition: opacity .2s;
+  }
+  .contact__submit-spinner {
+    display: none;
+    width: 20px; height: 20px;
+    border: 2px solid rgba(255,255,255,.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin .6s linear infinite;
+    position: absolute;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .contact__submit--loading .contact__submit-text { opacity: 0; }
+  .contact__submit--loading .contact__submit-spinner { display: block; }
+  .contact__submit:disabled { opacity: .8; cursor: not-allowed; }
+
+  /* Honeypot — visually hidden for bots */
+  .contact__hp {
+    position: absolute;
+    left: -9999px;
+    width: 1px; height: 1px;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* ── Toast overlay ──────────────────────────────────── */
+  .contact__toast {
+    position: fixed;
+    top: 1.5rem;
+    right: 1.5rem;
+    z-index: 10010;
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: .9rem 1.25rem;
+    border-radius: var(--radius);
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-lg);
+    opacity: 0;
+    transform: translateX(120%);
+    transition: opacity .4s cubic-bezier(.34,1.56,.64,1), transform .4s cubic-bezier(.34,1.56,.64,1);
+    pointer-events: none;
+  }
+  .contact__toast--visible {
+    opacity: 1;
+    transform: translateX(0);
+    pointer-events: auto;
+  }
+  .contact__toast--success { border-color: var(--color-success); }
+  .contact__toast--error { border-color: #f87171; }
+  .contact__toast-icon { flex-shrink: 0; display: flex; }
+  .contact__toast-msg {
+    font-size: .88rem;
+    font-weight: 500;
+    color: var(--color-text);
+  }
+
+  @media (max-width: 768px) {
+    .contact__grid { grid-template-columns: 1fr; }
+    .contact__toast { left: 1rem; right: 1rem; top: 1rem; }
+  }
+</style>

@@ -1,0 +1,1170 @@
+---
+/**
+ * AiAssistant.astro
+ * =================
+ * Floating AI chatbot assistant — 100% client-side.
+ * Uses portfolio.ts data as knowledge base with keyword+regex intent scoring.
+ * Adapts to dark/light theme and available data sections.
+ */
+import {
+  personalInfo,
+  aboutParagraphs,
+  technicalSkills,
+  softSkills,
+  education,
+  experiences,
+  publications,
+  certifications,
+  projects,
+  socialLinks,
+  stats,
+  navItems,
+} from '../data/portfolio';
+
+/* Serialise data for the client script */
+const portfolioData = JSON.stringify({
+  personalInfo,
+  aboutParagraphs,
+  technicalSkills,
+  softSkills,
+  education,
+  experiences,
+  publications,
+  certifications,
+  projects,
+  socialLinks,
+  stats,
+  navItems,
+});
+---
+
+<!-- ────────────────── Floating button ────────────────── -->
+<div class="ai-fab" id="aiFab" aria-label="Open AI Assistant">
+  <span class="ai-fab__ring"></span>
+  <img class="ai-fab__icon ai-fab__icon--dark" src="/black.png" alt="" width="44" height="44" />
+  <img class="ai-fab__icon ai-fab__icon--light" src="/white.png" alt="" width="44" height="44" />
+</div>
+
+<!-- ────────────────── Chat panel ─────────────────────── -->
+<div class="ai-panel" id="aiPanel" aria-hidden="true" role="dialog" aria-label="AI Assistant chat">
+
+  <!-- Header -->
+  <div class="ai-panel__header">
+    <div class="ai-panel__avatar-wrap">
+      <img class="ai-panel__avatar ai-panel__avatar--dark" src="/black.png" alt="" width="36" height="36" />
+      <img class="ai-panel__avatar ai-panel__avatar--light" src="/white.png" alt="" width="36" height="36" />
+    </div>
+    <div class="ai-panel__info">
+      <span class="ai-panel__name" data-i18n="ai.name">Placio AI Assistant</span>
+      <span class="ai-panel__status"><span class="ai-panel__dot"></span><span data-i18n="ai.online">Online</span></span>
+    </div>
+    <button class="ai-panel__close" id="aiClose" aria-label="Close chat">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+
+  <!-- Messages -->
+  <div class="ai-panel__messages" id="aiMessages"></div>
+
+  <!-- Quick actions -->
+  <div class="ai-panel__quick" id="aiQuick"></div>
+
+  <!-- Input -->
+  <form class="ai-panel__input-bar" id="aiForm" autocomplete="off">
+    <input class="ai-panel__input" id="aiInput" type="text" placeholder="Ask me anything…" data-i18n-placeholder="ai.placeholder" maxlength="300" />
+    <button class="ai-panel__send" type="submit" aria-label="Send message">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+    </button>
+  </form>
+</div>
+
+<!-- ────────────────── Client script ─────────────────── -->
+<script define:vars={{ portfolioData }}>
+(function () {
+  /* ── Data ───────────────────────────────────────────── */
+  const D = JSON.parse(portfolioData);
+  const NAME = `${D.personalInfo.firstName} ${D.personalInfo.lastName}`;
+
+  /* ── DOM refs ───────────────────────────────────────── */
+  const fab     = document.getElementById('aiFab');
+  const panel   = document.getElementById('aiPanel');
+  const close   = document.getElementById('aiClose');
+  const msgArea = document.getElementById('aiMessages');
+  const quick   = document.getElementById('aiQuick');
+  const form    = document.getElementById('aiForm');
+  const input   = document.getElementById('aiInput');
+
+  let isOpen = false;
+  let quickShown = true;
+  const HISTORY_KEY = 'placio_chat_history';
+  const MAX_HISTORY = 50;
+
+  /* ── Theme helper ───────────────────────────────────── */
+  function currentTheme() {
+    return document.documentElement.getAttribute('data-theme') || 'dark';
+  }
+  function applyThemeToChat() {
+    const t = currentTheme();
+    panel.setAttribute('data-chat-theme', t);
+    fab.setAttribute('data-chat-theme', t);
+  }
+  applyThemeToChat();
+  new MutationObserver(applyThemeToChat).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  /* ── HTML escape helper (prevents XSS) ─────────────── */
+  function escapeHtml(str) {
+    var div = document.createElement('div');
+    div.appendChild(document.createTextNode(str));
+    return div.innerHTML;
+  }
+
+  /* ── Mini Markdown renderer ──────────────────────────── */
+  /* SAFETY: Only applied to bot responses (trusted internal data).
+     User messages are rendered with textContent, never innerHTML. */
+  function md(text) {
+    return text
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/\[([^\]]+)\]\((#[^)]+)\)/g, '<a href="$2" class="ai-link ai-link--section">$1</a>')
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="ai-link">$1</a>')
+      .replace(/\n/g, '<br/>');
+  }
+
+  /* ── Message rendering ──────────────────────────────── */
+  function addMessage(role, text, save) {
+    if (save !== false) saveMsg(role, text);
+    const wrap = document.createElement('div');
+    wrap.className = `ai-msg ai-msg--${role}`;
+
+    if (role === 'bot') {
+      const av = document.createElement('div');
+      av.className = 'ai-msg__avatar';
+      av.innerHTML = `<img class="ai-msg__avatar-img ai-msg__avatar-img--dark" src="/black.png" width="28" height="28" alt="" /><img class="ai-msg__avatar-img ai-msg__avatar-img--light" src="/white.png" width="28" height="28" alt="" />`;
+      wrap.appendChild(av);
+    }
+
+    const bubble = document.createElement('div');
+    bubble.className = 'ai-bubble';
+    if (role === 'user') {
+      bubble.textContent = text;
+    } else {
+      /* Bot responses are trusted (generated from internal portfolio data) */
+      bubble.innerHTML = md(text);
+    }
+    wrap.appendChild(bubble);
+
+    msgArea.appendChild(wrap);
+    requestAnimationFrame(() => {
+      wrap.classList.add('ai-msg--visible');
+      scrollBottom();
+    });
+
+    /* section links → close + scroll */
+    bubble.querySelectorAll('.ai-link--section').forEach(a => {
+      a.addEventListener('click', e => {
+        e.preventDefault();
+        closePanel();
+        const href = a.getAttribute('href');
+        /* Only allow #id fragment selectors to prevent selector injection */
+        if (href && /^#[a-zA-Z][\w-]*$/.test(href)) {
+          const target = document.querySelector(href);
+          if (target) target.scrollIntoView({ behavior: 'smooth' });
+        }
+      });
+    });
+  }
+
+  function showTyping() {
+    const wrap = document.createElement('div');
+    wrap.className = 'ai-msg ai-msg--bot ai-typing-wrap';
+    const av = document.createElement('div');
+    av.className = 'ai-msg__avatar';
+    /* Safe: static trusted HTML for theme-aware avatar images */
+    av.innerHTML = '<img class="ai-msg__avatar-img ai-msg__avatar-img--dark" src="/black.png" width="28" height="28" alt="" /><img class="ai-msg__avatar-img ai-msg__avatar-img--light" src="/white.png" width="28" height="28" alt="" />';
+    wrap.appendChild(av);
+    const dots = document.createElement('div');
+    dots.className = 'ai-typing';
+    dots.innerHTML = '<span></span><span></span><span></span>';
+    wrap.appendChild(dots);
+    msgArea.appendChild(wrap);
+    wrap.classList.add('ai-msg--visible');
+    scrollBottom();
+    return wrap;
+  }
+
+  function scrollBottom() {
+    msgArea.scrollTop = msgArea.scrollHeight;
+  }
+
+  /* ── localStorage ───────────────────────────────────── */
+  function loadHistory() {
+    try {
+      var parsed = JSON.parse(localStorage.getItem(HISTORY_KEY)) || [];
+      _historyCache = parsed;
+      return parsed;
+    } catch { return []; }
+  }
+  let _historyCache = null;
+  function saveMsg(role, text) {
+    const h = _historyCache || loadHistory();
+    h.push({ role, text });
+    if (h.length > MAX_HISTORY) h.splice(0, h.length - MAX_HISTORY);
+    _historyCache = h;
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(h));
+  }
+  function restoreHistory() {
+    const h = loadHistory();
+    if (h.length) {
+      quickShown = false;
+      quick.innerHTML = '';
+      h.forEach(m => addMessage(m.role, m.text, false));
+    }
+  }
+
+  /* ── Quick actions ──────────────────────────────────── */
+  function buildQuickActions() {
+    const L = lang();
+    const actions = [];
+    if (L === 'fr') {
+      actions.push({ label: `Qui est ${D.personalInfo.firstName} ?`, q: `Qui est ${D.personalInfo.firstName} ?` });
+      actions.push({ label: 'Compétences', q: 'Quelles sont tes compétences ?' });
+      if (D.projects.length) actions.push({ label: 'Projets', q: 'Montre-moi tes projets' });
+      if (D.education.length) actions.push({ label: 'Formation', q: 'Quelle est ta formation ?' });
+      actions.push({ label: 'Contact', q: 'Comment te contacter ?' });
+    } else if (L === 'ar') {
+      actions.push({ label: `من هو ${D.personalInfo.firstName}؟`, q: `من هو ${D.personalInfo.firstName}؟` });
+      actions.push({ label: 'المهارات', q: 'ما هي مهاراتك؟' });
+      if (D.projects.length) actions.push({ label: 'المشاريع', q: 'أرني مشاريعك' });
+      if (D.education.length) actions.push({ label: 'التعليم', q: 'ما هو تعليمك؟' });
+      actions.push({ label: 'التواصل', q: 'كيف أتواصل معك؟' });
+    } else {
+      actions.push({ label: `Who is ${D.personalInfo.firstName}?`, q: `Who is ${D.personalInfo.firstName}?` });
+      actions.push({ label: 'Skills', q: 'What skills do you have?' });
+      if (D.projects.length)      actions.push({ label: 'Projects', q: 'Show me your projects' });
+      if (D.publications.length)  actions.push({ label: 'Publications', q: 'Tell me about publications' });
+      if (D.education.length)     actions.push({ label: 'Education', q: 'What is your education?' });
+      if (D.experiences.length)   actions.push({ label: 'Experience', q: 'Tell me about your experience' });
+      if (D.certifications.length) actions.push({ label: 'Certifications', q: 'Show certifications' });
+      actions.push({ label: 'Contact', q: 'How can I contact you?' });
+    }
+
+    actions.forEach(a => {
+      const chip = document.createElement('button');
+      chip.className = 'ai-chip';
+      chip.textContent = a.label;
+      chip.addEventListener('click', () => {
+        hideQuick();
+        handleUserMessage(a.q);
+      });
+      quick.appendChild(chip);
+    });
+  }
+
+  function hideQuick() {
+    if (!quickShown) return;
+    quickShown = false;
+    quick.classList.add('ai-panel__quick--hidden');
+  }
+
+  /* ── Current language helper ─────────────────────────── */
+  function lang() {
+    return (window.__i18n && window.__i18n.getLang) ? window.__i18n.getLang() : 'en';
+  }
+  function t(key) {
+    return (window.__i18n && window.__i18n.t) ? window.__i18n.t(key) : key;
+  }
+
+  /* ── Intent scoring engine ─────────────────────────── */
+  const intents = {
+    greeting:    { kw: ['hello','hi','hey','greetings','bonjour','salut','good morning','good evening','howdy','what\'s up','sup','bonsoir','مرحبا','سلام','أهلا'], score: 0 },
+    about:       { kw: ['who','about','yourself','introduction','tell me about','background','bio','profile','describe','qui','présente','présentation','à propos','من','عن','نفسك','تعريف'], score: 0 },
+    skills:      { kw: ['skills','stack','technologies','tech','competences','programming','languages','tools','frameworks','what can you do','abilities','compétences','outils','langages','مهارات','تقنيات','أدوات'], score: 0 },
+    skillDetail: { kw: [], score: 0 },
+    projects:    { kw: ['projects','work','portfolio','built','applications','apps','show me','what have you built','demos','projets','travaux','réalisations','مشاريع','أعمال','تطبيقات'], score: 0 },
+    education:   { kw: ['education','study','school','degree','university','diploma','academic','learning','college','esisa','bachelor','courses','études','formation','diplôme','université','école','تعليم','دراسة','جامعة','شهادة'], score: 0 },
+    experience:  { kw: ['experience','job','worked','intern','internship','professional','career','employment','company','expérience','emploi','stage','carrière','entreprise','تجربة','عمل','وظيفة','تدريب'], score: 0 },
+    publications:{ kw: ['publications','papers','research','articles','published','journal','conference','recherche','منشورات','أبحاث','مقالات'], score: 0 },
+    certifications:{ kw: ['certifications','certificates','certified','badge','credentials','accreditation','certificats','شهادات'], score: 0 },
+    contact:     { kw: ['contact','reach','email','mail','message','get in touch','hire','available','phone','whatsapp','call','contacter','joindre','تواصل','اتصال','بريد'], score: 0 },
+    social:      { kw: ['social','linkedin','github','twitter','links','profiles','socials','connect','follow','network','réseaux','sociaux','شبكات','اجتماعية'], score: 0 },
+    stats:       { kw: ['stats','statistics','numbers','achievements','metrics','how many','statistiques','chiffres','إحصائيات','أرقام'], score: 0 },
+    navigate:    { kw: ['go to','navigate','show section','scroll to','take me','jump to','open section','aller à','naviguer','montrer','اذهب','انتقل','أرني'], score: 0 },
+    help:        { kw: ['help','what can you','options','menu','commands','features','capabilities','assist','aide','aider','مساعدة','ماذا يمكنك'], score: 0 },
+    thanks:      { kw: ['thanks','thank you','thx','ty','appreciate','grateful','cheers','merci','remercie','شكرا','شكراً'], score: 0 },
+  };
+
+  /* Build all-skill lookup for specific skill queries */
+  const allSkills = [];
+  D.technicalSkills.forEach(cat => cat.skills.forEach(s => allSkills.push(s.toLowerCase())));
+
+  function detectIntent(text) {
+    const lower = text.toLowerCase().trim();
+    const scores = {};
+
+    /* reset */
+    for (const k in intents) scores[k] = 0;
+
+    /* keyword match with partial & boundary support */
+    for (const [intent, { kw }] of Object.entries(intents)) {
+      kw.forEach(w => {
+        if (lower.includes(w)) scores[intent] += 2;
+      });
+    }
+
+    /* boost specific skill if directly mentioned */
+    const matchedSkill = allSkills.find(s => lower.includes(s));
+    if (matchedSkill) scores.skillDetail = 5;
+
+    /* section navigation boost */
+    const sectionMap = { home:'#hero', about:'#about', skills:'#skills', education:'#education',
+      experience:'#experience', publications:'#publications', certifications:'#certifications',
+      projects:'#projects', contact:'#contact' };
+    for (const [key] of Object.entries(sectionMap)) {
+      if (lower.includes(key) && (lower.includes('go to') || lower.includes('navigate') || lower.includes('scroll') || lower.includes('show') || lower.includes('take me') || lower.includes('jump'))) {
+        scores.navigate += 5;
+      }
+    }
+
+    /* pick top */
+    let best = 'fallback';
+    let max = 0;
+    for (const [k, v] of Object.entries(scores)) {
+      if (v > max) { max = v; best = k; }
+    }
+    return { intent: best, matchedSkill, lower };
+  }
+
+  /* ── Response generators ────────────────────────────── */
+
+  const _easterEgg = new Set(['sir t9wd','sir t9awed','sir t9wed']);
+
+  function respond(text) {
+    if (_easterEgg.has(text.trim().toLowerCase())) return 'mreg azbi chwiya';
+    const { intent, matchedSkill, lower } = detectIntent(text);
+
+    switch (intent) {
+      case 'greeting': return greetingReply();
+      case 'about':    return aboutReply();
+      case 'skills':   return skillsReply();
+      case 'skillDetail': return skillDetailReply(matchedSkill);
+      case 'projects': return projectsReply();
+      case 'education':return educationReply();
+      case 'experience':return experienceReply();
+      case 'publications':return publicationsReply();
+      case 'certifications':return certificationsReply();
+      case 'contact':  return contactReply();
+      case 'social':   return socialReply();
+      case 'stats':    return statsReply();
+      case 'navigate': return navigateReply(lower);
+      case 'help':     return helpReply();
+      case 'thanks':   return thanksReply();
+      default:         return fallbackReply();
+    }
+  }
+
+  function greetingReply() {
+    const L = lang();
+    if (L === 'fr') {
+      const g = [
+        `Bonjour ! 👋 Je suis **Placio**, l'assistant virtuel de ${NAME}. Comment puis-je vous aider ?\n\nVous pouvez me poser des questions sur les **compétences**, **projets**, **formation** ou **contact** !`,
+        `Salut ! 😊 Bienvenue sur le portfolio de ${NAME}. Je suis là pour vous aider. Que souhaitez-vous savoir ?`,
+      ];
+      return g[Math.floor(Math.random() * g.length)];
+    }
+    if (L === 'ar') {
+      const g = [
+        `مرحبًا! 👋 أنا **بلاسيو**، المساعد الافتراضي لـ ${NAME}. كيف يمكنني مساعدتك؟\n\nيمكنك سؤالي عن **المهارات**، **المشاريع**، **التعليم** أو **التواصل**!`,
+        `أهلاً! 😊 مرحبًا بك في معرض أعمال ${NAME}. أنا هنا لمساعدتك. ماذا تريد أن تعرف؟`,
+      ];
+      return g[Math.floor(Math.random() * g.length)];
+    }
+    const greetings = [
+      `Hello! 👋 I'm **Placio**, ${NAME}'s virtual assistant. How can I help you today?\n\nYou can ask me about **skills**, **projects**, **education**, or **contact** info!`,
+      `Hey there! 😊 Welcome to ${NAME}'s portfolio. I'm here to help you learn more about ${D.personalInfo.firstName}. What would you like to know?`,
+      `Hi! 👋 Great to see you here! I can tell you about ${D.personalInfo.firstName}'s **skills**, **projects**, **education**, and more. Just ask!`,
+    ];
+    return greetings[Math.floor(Math.random() * greetings.length)];
+  }
+
+  function aboutReply() {
+    const L = lang();
+    let r = `**${NAME}** — *${D.personalInfo.title}*\n\n`;
+    if (L === 'fr') {
+      r = `**${NAME}** — *${t('hero.title')}*\n\n`;
+      for (let i = 0; i < D.aboutParagraphs.length; i++) r += t('about.p.' + i) + '\n\n';
+      r += `📍 Basé à **${D.personalInfo.location}**`;
+      if (D.personalInfo.availabilityBadge) r += `\n🟢 *${t('hero.badge')}*`;
+      r += `\n\n👉 [En savoir plus](#about)`;
+    } else if (L === 'ar') {
+      r = `**${NAME}** — *${t('hero.title')}*\n\n`;
+      for (let i = 0; i < D.aboutParagraphs.length; i++) r += t('about.p.' + i) + '\n\n';
+      r += `📍 مقيم في **${D.personalInfo.location}**`;
+      if (D.personalInfo.availabilityBadge) r += `\n🟢 *${t('hero.badge')}*`;
+      r += `\n\n👉 [اقرأ المزيد](#about)`;
+    } else {
+      r += D.aboutParagraphs.map(p => p.text).join('\n\n');
+      r += `\n\n📍 Based in **${D.personalInfo.location}**`;
+      if (D.personalInfo.availabilityBadge) r += `\n🟢 *${D.personalInfo.availabilityBadge}*`;
+      r += `\n\n👉 [Read more about ${D.personalInfo.firstName}](#about)`;
+    }
+    return r;
+  }
+
+  function skillsReply() {
+    const L = lang();
+    let r;
+    if (L === 'fr') {
+      r = `Voici les compétences techniques de **${NAME}** :\n\n`;
+      D.technicalSkills.forEach((cat, i) => { r += `**${t('skills.cat.' + i)}:** ${cat.skills.join(', ')}\n`; });
+      if (D.softSkills.length) r += `\n**Compétences relationnelles:** ${D.softSkills.map((s, i) => t('skills.soft.' + i + '.name')).join(', ')}`;
+      r += `\n\n👉 [Voir toutes les compétences](#skills)`;
+    } else if (L === 'ar') {
+      r = `إليك المهارات التقنية لـ **${NAME}**:\n\n`;
+      D.technicalSkills.forEach((cat, i) => { r += `**${t('skills.cat.' + i)}:** ${cat.skills.join(', ')}\n`; });
+      if (D.softSkills.length) r += `\n**المهارات الشخصية:** ${D.softSkills.map((s, i) => t('skills.soft.' + i + '.name')).join(', ')}`;
+      r += `\n\n👉 [عرض جميع المهارات](#skills)`;
+    } else {
+      r = `Here are **${NAME}**'s technical skills:\n\n`;
+      D.technicalSkills.forEach(cat => { r += `**${cat.category}:** ${cat.skills.join(', ')}\n`; });
+      if (D.softSkills.length) r += `\n**Soft Skills:** ${D.softSkills.map(s => s.name).join(', ')}`;
+      r += `\n\n👉 [View all skills](#skills)`;
+    }
+    return r;
+  }
+
+  function skillDetailReply(skill) {
+    const L = lang();
+    let cat = null;
+    let catIdx = -1;
+    D.technicalSkills.forEach((c, ci) => {
+      c.skills.forEach(s => {
+        if (s.toLowerCase() === skill) { cat = c.category; catIdx = ci; }
+      });
+    });
+    const skillName = skill.charAt(0).toUpperCase() + skill.slice(1);
+    if (L === 'fr') {
+      const catLabel = catIdx >= 0 ? t('skills.cat.' + catIdx) : 'technique';
+      return `Oui ! **${NAME}** maîtrise **${skillName}** — cela fait partie de l'ensemble *${catLabel}*.\n\n👉 [Voir toutes les compétences](#skills)`;
+    }
+    if (L === 'ar') {
+      const catLabel = catIdx >= 0 ? t('skills.cat.' + catIdx) : 'تقنية';
+      return `نعم! **${NAME}** يتقن **${skillName}** — وهي جزء من مجموعة *${catLabel}*.\n\n👉 [عرض جميع المهارات](#skills)`;
+    }
+    return `Yes! **${NAME}** knows **${skillName}** — it's part of the *${cat || 'technical'}* skill set.\n\n👉 [See all skills](#skills)`;
+  }
+
+  function projectsReply() {
+    if (!D.projects.length) {
+      const L = lang();
+      if (L === 'fr') return `${NAME} n'a pas encore listé de projets. Revenez bientôt !`;
+      if (L === 'ar') return `لم يقم ${NAME} بإدراج مشاريع بعد. عد قريبًا!`;
+      return `${NAME} hasn't listed projects yet. Check back soon!`;
+    }
+    const L = lang();
+    let r;
+    if (L === 'fr') {
+      r = `Voici les projets de **${NAME}** :\n\n`;
+      D.projects.forEach((p, i) => { r += `**${i + 1}. ${t('proj.' + i + '.title')}**\n${t('proj.' + i + '.desc')}\n*Tags: ${p.tags.join(', ')}*\n\n`; });
+      r += `👉 [Voir les projets](#projects)`;
+    } else if (L === 'ar') {
+      r = `إليك مشاريع **${NAME}**:\n\n`;
+      D.projects.forEach((p, i) => { r += `**${i + 1}. ${t('proj.' + i + '.title')}**\n${t('proj.' + i + '.desc')}\n*الوسوم: ${p.tags.join(', ')}*\n\n`; });
+      r += `👉 [عرض المشاريع](#projects)`;
+    } else {
+      r = `Here are **${NAME}**'s projects:\n\n`;
+      D.projects.forEach((p, i) => { r += `**${i + 1}. ${p.title}**\n${p.description}\n*Tags: ${p.tags.join(', ')}*\n\n`; });
+      r += `👉 [View projects section](#projects)`;
+    }
+    return r;
+  }
+
+  function educationReply() {
+    if (!D.education.length) {
+      const L = lang();
+      if (L === 'fr') return `Aucune information sur la formation n'est disponible.`;
+      if (L === 'ar') return `لا توجد معلومات عن التعليم حاليًا.`;
+      return `No education info available yet.`;
+    }
+    const L = lang();
+    let r;
+    if (L === 'fr') {
+      r = `Formation de **${NAME}** :\n\n`;
+      D.education.forEach((e, i) => { r += `🎓 **${t('edu.' + i + '.degree')}** — ${t('edu.' + i + '.field')}\n*${t('edu.' + i + '.institution')}* (${t('edu.' + i + '.period')})\n${t('edu.' + i + '.desc')}\n\n`; });
+      r += `👉 [Voir la section formation](#education)`;
+    } else if (L === 'ar') {
+      r = `تعليم **${NAME}**:\n\n`;
+      D.education.forEach((e, i) => { r += `🎓 **${t('edu.' + i + '.degree')}** — ${t('edu.' + i + '.field')}\n*${t('edu.' + i + '.institution')}* (${t('edu.' + i + '.period')})\n${t('edu.' + i + '.desc')}\n\n`; });
+      r += `👉 [عرض قسم التعليم](#education)`;
+    } else {
+      r = `**${NAME}**'s education:\n\n`;
+      D.education.forEach(e => { r += `🎓 **${e.degree}** — ${e.field}\n*${e.institution}* (${e.period})\n${e.description}\n\n`; });
+      r += `👉 [View education section](#education)`;
+    }
+    return r;
+  }
+
+  function experienceReply() {
+    const L = lang();
+    if (!D.experiences.length) {
+      if (L === 'fr') return `${NAME} est actuellement étudiant et n'a pas encore d'expérience professionnelle listée. ${D.personalInfo.availabilityBadge ? `Cependant, ${D.personalInfo.firstName} est *${t('hero.badge').toLowerCase()}* !` : ''}`;
+      if (L === 'ar') return `${NAME} حاليًا طالب ولم يدرج تجربة مهنية بعد. ${D.personalInfo.availabilityBadge ? `ومع ذلك، ${D.personalInfo.firstName} *${t('hero.badge')}*!` : ''}`;
+      return `${NAME} is currently a student and hasn't listed professional experience yet. ${D.personalInfo.availabilityBadge ? `However, ${D.personalInfo.firstName} is *${D.personalInfo.availabilityBadge.toLowerCase()}*!` : ''}`;
+    }
+    let r;
+    if (L === 'fr') {
+      r = `Expérience de **${NAME}** :\n\n`;
+      D.experiences.forEach(e => { r += `💼 **${e.role}** chez *${e.company}* (${e.period})\n${e.description}\n\n`; });
+      r += `👉 [Voir la section expérience](#experience)`;
+    } else if (L === 'ar') {
+      r = `تجربة **${NAME}**:\n\n`;
+      D.experiences.forEach(e => { r += `💼 **${e.role}** في *${e.company}* (${e.period})\n${e.description}\n\n`; });
+      r += `👉 [عرض قسم التجربة](#experience)`;
+    } else {
+      r = `**${NAME}**'s experience:\n\n`;
+      D.experiences.forEach(e => { r += `💼 **${e.role}** at *${e.company}* (${e.period})\n${e.description}\n\n`; });
+      r += `👉 [View experience section](#experience)`;
+    }
+    return r;
+  }
+
+  function publicationsReply() {
+    const L = lang();
+    if (!D.publications.length) {
+      if (L === 'fr') return `${NAME} n'a pas encore de publications listées.`;
+      if (L === 'ar') return `لا توجد منشورات مدرجة لـ ${NAME} حاليًا.`;
+      return `${NAME} doesn't have publications listed at this time.`;
+    }
+    let r;
+    if (L === 'fr') {
+      r = `Publications de **${NAME}** :\n\n`;
+      D.publications.forEach(p => { r += `📄 **${p.title}** (${p.year})\n*${p.journal}*\n${p.authors}\n\n`; });
+      r += `👉 [Voir la section publications](#publications)`;
+    } else if (L === 'ar') {
+      r = `منشورات **${NAME}**:\n\n`;
+      D.publications.forEach(p => { r += `📄 **${p.title}** (${p.year})\n*${p.journal}*\n${p.authors}\n\n`; });
+      r += `👉 [عرض قسم المنشورات](#publications)`;
+    } else {
+      r = `**${NAME}**'s publications:\n\n`;
+      D.publications.forEach(p => { r += `📄 **${p.title}** (${p.year})\n*${p.journal}*\n${p.authors}\n\n`; });
+      r += `👉 [View publications section](#publications)`;
+    }
+    return r;
+  }
+
+  function certificationsReply() {
+    const L = lang();
+    if (!D.certifications.length) {
+      if (L === 'fr') return `Aucune certification n'est encore listée. Mais ${NAME} apprend toujours ! 📚`;
+      if (L === 'ar') return `لا توجد شهادات مدرجة بعد. لكن ${NAME} يتعلم دائمًا! 📚`;
+      return `No certifications are listed yet. ${NAME} is always learning though! 📚`;
+    }
+    let r;
+    if (L === 'fr') {
+      r = `Certifications de **${NAME}** :\n\n`;
+      D.certifications.forEach(c => { r += `🏆 **${c.name}** — *${c.issuer}* (${c.date})\nCompétences : ${c.skills.join(', ')}\n\n`; });
+      r += `👉 [Voir la section certifications](#certifications)`;
+    } else if (L === 'ar') {
+      r = `شهادات **${NAME}**:\n\n`;
+      D.certifications.forEach(c => { r += `🏆 **${c.name}** — *${c.issuer}* (${c.date})\nالمهارات: ${c.skills.join(', ')}\n\n`; });
+      r += `👉 [عرض قسم الشهادات](#certifications)`;
+    } else {
+      r = `**${NAME}**'s certifications:\n\n`;
+      D.certifications.forEach(c => { r += `🏆 **${c.name}** — *${c.issuer}* (${c.date})\nSkills: ${c.skills.join(', ')}\n\n`; });
+      r += `👉 [View certifications section](#certifications)`;
+    }
+    return r;
+  }
+
+  function contactReply() {
+    const L = lang();
+    let r;
+    if (L === 'fr') {
+      r = `Vous pouvez contacter **${NAME}** via :\n\n`;
+      r += `📧 **Email :** ${D.personalInfo.emails[0]}\n`;
+      if (D.personalInfo.phone) r += `📱 **Téléphone :** ${D.personalInfo.phone}\n`;
+      r += `📍 **Localisation :** ${D.personalInfo.location}\n`;
+      D.socialLinks.forEach(l => { r += `🔗 [${l.label}](${l.url})\n`; });
+      r += `\n👉 [Aller à la section contact](#contact)`;
+    } else if (L === 'ar') {
+      r = `يمكنك التواصل مع **${NAME}** عبر:\n\n`;
+      r += `📧 **البريد الإلكتروني:** ${D.personalInfo.emails[0]}\n`;
+      if (D.personalInfo.phone) r += `📱 **الهاتف:** ${D.personalInfo.phone}\n`;
+      r += `📍 **الموقع:** ${D.personalInfo.location}\n`;
+      D.socialLinks.forEach(l => { r += `🔗 [${l.label}](${l.url})\n`; });
+      r += `\n👉 [الانتقال إلى قسم التواصل](#contact)`;
+    } else {
+      r = `You can reach **${NAME}** through:\n\n`;
+      r += `📧 **Email:** ${D.personalInfo.emails[0]}\n`;
+      if (D.personalInfo.phone) r += `📱 **Phone:** ${D.personalInfo.phone}\n`;
+      r += `📍 **Location:** ${D.personalInfo.location}\n`;
+      D.socialLinks.forEach(l => { r += `🔗 [${l.label}](${l.url})\n`; });
+      r += `\n👉 [Go to contact section](#contact)`;
+    }
+    return r;
+  }
+
+  function socialReply() {
+    const L = lang();
+    if (!D.socialLinks.length) {
+      if (L === 'fr') return `Aucun lien social disponible.`;
+      if (L === 'ar') return `لا توجد روابط اجتماعية متاحة.`;
+      return `No social links available.`;
+    }
+    let r;
+    if (L === 'fr') {
+      r = `Retrouvez **${NAME}** sur :\n\n`;
+    } else if (L === 'ar') {
+      r = `تواصل مع **${NAME}**:\n\n`;
+    } else {
+      r = `Connect with **${NAME}**:\n\n`;
+    }
+    D.socialLinks.forEach(l => { r += `🔗 [${l.label}](${l.url})\n`; });
+    return r;
+  }
+
+  function statsReply() {
+    const L = lang();
+    if (!D.stats.length) {
+      if (L === 'fr') return `Aucune statistique disponible pour le moment.`;
+      if (L === 'ar') return `لا توجد إحصائيات متاحة حاليًا.`;
+      return `No statistics available yet.`;
+    }
+    let r;
+    if (L === 'fr') {
+      r = `**${NAME}** en chiffres :\n\n`;
+      D.stats.forEach((s, i) => { r += `📊 **${t('stats.' + i + '.value')}** ${t('stats.' + i + '.label')}\n`; });
+    } else if (L === 'ar') {
+      r = `**${NAME}** بالأرقام:\n\n`;
+      D.stats.forEach((s, i) => { r += `📊 **${t('stats.' + i + '.value')}** ${t('stats.' + i + '.label')}\n`; });
+    } else {
+      r = `**${NAME}** in numbers:\n\n`;
+      D.stats.forEach(s => { r += `📊 **${s.value}** ${s.label}\n`; });
+    }
+    return r;
+  }
+
+  function navigateReply(lower) {
+    const L = lang();
+    const sectionMap = { home:'#hero', about:'#about', skills:'#skills', education:'#education',
+      experience:'#experience', publications:'#publications', certifications:'#certifications',
+      projects:'#projects', contact:'#contact' };
+    const sectionNamesFr = { home:'accueil', about:'à propos', skills:'compétences', education:'formation', experience:'expérience', publications:'publications', certifications:'certifications', projects:'projets', contact:'contact' };
+    const sectionNamesAr = { home:'الرئيسية', about:'حول', skills:'المهارات', education:'التعليم', experience:'التجربة', publications:'المنشورات', certifications:'الشهادات', projects:'المشاريع', contact:'التواصل' };
+    for (const [key, hash] of Object.entries(sectionMap)) {
+      if (lower.includes(key)) {
+        if (L === 'fr') return `Bien sûr ! Je vous emmène à la section **${sectionNamesFr[key]}**… 👉 [Aller à ${sectionNamesFr[key]}](${hash})`;
+        if (L === 'ar') return `بالتأكيد! سأنقلك إلى قسم **${sectionNamesAr[key]}**… 👉 [اذهب إلى ${sectionNamesAr[key]}](${hash})`;
+        return `Sure! Taking you to the **${key}** section now… 👉 [Go to ${key}](${hash})`;
+      }
+    }
+    if (L === 'fr') return `Quelle section souhaitez-vous visiter ? Vous pouvez dire : ${Object.values(sectionNamesFr).join(', ')}.`;
+    if (L === 'ar') return `أي قسم تريد زيارته؟ يمكنك قول: ${Object.values(sectionNamesAr).join(', ')}.`;
+    return `Which section would you like to visit? You can say: ${Object.keys(sectionMap).join(', ')}.`;
+  }
+
+  function helpReply() {
+    const L = lang();
+    let r;
+    if (L === 'fr') {
+      r = `Je peux vous aider avec :\n\n`;
+      r += `• **À propos** — En savoir plus sur ${D.personalInfo.firstName}\n`;
+      r += `• **Compétences** — Techniques et relationnelles\n`;
+      if (D.projects.length) r += `• **Projets** — Réalisations\n`;
+      if (D.education.length) r += `• **Formation** — Parcours académique\n`;
+      if (D.experiences.length) r += `• **Expérience** — Parcours professionnel\n`;
+      if (D.publications.length) r += `• **Publications** — Articles de recherche\n`;
+      if (D.certifications.length) r += `• **Certifications** — Accréditations\n`;
+      r += `• **Contact** — Entrer en contact\n`;
+      r += `• **Naviguer** — "Aller à [section]"\n`;
+      r += `\nPosez simplement votre question ! 😊`;
+    } else if (L === 'ar') {
+      r = `يمكنني مساعدتك في:\n\n`;
+      r += `• **حول** — تعرف على ${D.personalInfo.firstName}\n`;
+      r += `• **المهارات** — التقنية والشخصية\n`;
+      if (D.projects.length) r += `• **المشاريع** — الأعمال المنجزة\n`;
+      if (D.education.length) r += `• **التعليم** — المسار الأكاديمي\n`;
+      if (D.experiences.length) r += `• **التجربة** — المسار المهني\n`;
+      if (D.publications.length) r += `• **المنشورات** — أوراق بحثية\n`;
+      if (D.certifications.length) r += `• **الشهادات** — الاعتمادات\n`;
+      r += `• **التواصل** — تواصل معنا\n`;
+      r += `• **التنقل** — "اذهب إلى [قسم]"\n`;
+      r += `\nفقط اكتب سؤالك! 😊`;
+    } else {
+      r = `I can help you with:\n\n`;
+      r += `• **About** — Learn about ${D.personalInfo.firstName}\n`;
+      r += `• **Skills** — Technical & soft skills\n`;
+      if (D.projects.length) r += `• **Projects** — Portfolio work\n`;
+      if (D.education.length) r += `• **Education** — Academic background\n`;
+      if (D.experiences.length) r += `• **Experience** — Work history\n`;
+      if (D.publications.length) r += `• **Publications** — Research papers\n`;
+      if (D.certifications.length) r += `• **Certifications** — Credentials\n`;
+      r += `• **Contact** — Get in touch\n`;
+      r += `• **Navigate** — "Go to [section]"\n`;
+      r += `\nJust type your question! 😊`;
+    }
+    return r;
+  }
+
+  function thanksReply() {
+    const L = lang();
+    if (L === 'fr') {
+      const r = [`De rien ! 😊 N'hésitez pas si vous avez d'autres questions.`, `Avec plaisir ! Je reste disponible. 👋`];
+      return r[Math.floor(Math.random() * r.length)];
+    }
+    if (L === 'ar') {
+      const r = [`على الرحب والسعة! 😊 لا تتردد إذا كان لديك أسئلة أخرى.`, `بكل سرور! أنا هنا إذا احتجت شيئًا آخر. 👋`];
+      return r[Math.floor(Math.random() * r.length)];
+    }
+    const replies = [
+      `You're welcome! 😊 Let me know if you need anything else.`,
+      `Happy to help! Feel free to ask more about ${D.personalInfo.firstName}'s work.`,
+      `No problem! I'm here if you have more questions. 👋`,
+    ];
+    return replies[Math.floor(Math.random() * replies.length)];
+  }
+
+  function fallbackReply() {
+    const L = lang();
+    if (L === 'fr') {
+      let r = `Je n'ai pas bien compris. 🤔 Je peux vous aider avec :\n\n`;
+      r += `• **Compétences** et technologies\n• **Projets** et portfolio\n• **Formation** et parcours\n• Informations de **contact**\n\n`;
+      r += `Essayez par exemple *"Quelles sont les compétences de ${D.personalInfo.firstName} ?"* ou *"Montre-moi tes projets"*.`;
+      return r;
+    }
+    if (L === 'ar') {
+      let r = `لم أفهم ذلك جيدًا. 🤔 يمكنني مساعدتك في:\n\n`;
+      r += `• **المهارات** والتقنيات\n• **المشاريع** والأعمال\n• **التعليم** والمسار\n• معلومات **التواصل**\n\n`;
+      r += `جرب مثلاً *"ما مهارات ${D.personalInfo.firstName}؟"* أو *"أرني مشاريعك"*.`;
+      return r;
+    }
+    let r = `I'm not sure I understood that. 🤔 I can help you with:\n\n`;
+    r += `• **Skills** & technologies\n`;
+    r += `• **Projects** & portfolio\n`;
+    r += `• **Education** & background\n`;
+    r += `• **Contact** information\n\n`;
+    r += `Try asking something like *"What skills does ${D.personalInfo.firstName} have?"* or *"Show me your projects"*.`;
+    return r;
+  }
+
+  /* ── User message handler ───────────────────────────── */
+  function handleUserMessage(text) {
+    addMessage('user', text);
+    const typing = showTyping();
+    const delay = 600 + Math.random() * 600;
+    setTimeout(() => {
+      typing.remove();
+      const reply = respond(text);
+      addMessage('bot', reply);
+    }, delay);
+  }
+
+  /* ── Open / close ───────────────────────────────────── */
+  function openPanel() {
+    isOpen = true;
+    panel.classList.add('ai-panel--open');
+    panel.setAttribute('aria-hidden', 'false');
+    fab.classList.add('ai-fab--hidden');
+    input.focus();
+    scrollBottom();
+  }
+
+  function closePanel() {
+    isOpen = false;
+    panel.classList.remove('ai-panel--open');
+    panel.setAttribute('aria-hidden', 'true');
+    fab.classList.remove('ai-fab--hidden');
+  }
+
+  /* ── Events ─────────────────────────────────────────── */
+  fab.addEventListener('click', openPanel);
+  close.addEventListener('click', closePanel);
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && isOpen) closePanel();
+  });
+
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    hideQuick();
+    handleUserMessage(text);
+  });
+
+  /* ── Init ───────────────────────────────────────────── */
+  const history = loadHistory();
+  if (history.length) {
+    restoreHistory();
+  } else {
+    addMessage('bot', greetingReply(), true);
+    buildQuickActions();
+  }
+
+  /* Rebuild quick actions when language changes */
+  window.addEventListener('langchange', function () {
+    if (quickShown) {
+      quick.innerHTML = '';
+      buildQuickActions();
+    }
+  });
+})();
+</script>
+
+<!-- ────────────────── Styles ─────────────────────────── -->
+<style is:global>
+  /* ── Floating action button ──────────────────────────── */
+  .ai-fab {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 1.5rem;
+    z-index: 9998;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: var(--color-bg-glass);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform .25s cubic-bezier(.4,0,.2,1), box-shadow .25s ease, opacity .3s ease;
+    animation: aiFabIn .6s cubic-bezier(.34,1.56,.64,1) both;
+    animation-delay: 1s;
+  }
+  @keyframes aiFabIn {
+    from { opacity: 0; transform: scale(0) translateY(20px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  .ai-fab:hover {
+    transform: scale(1.08);
+    box-shadow: var(--shadow-lg), 0 0 20px var(--color-glow);
+  }
+  .ai-fab:active { transform: scale(0.95); }
+  .ai-fab--hidden { opacity: 0; pointer-events: none; transform: scale(0); }
+
+  /* theme-based icon visibility */
+  .ai-fab__icon { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; position: absolute; transition: opacity .3s ease; }
+  .ai-fab__icon--dark  { opacity: 1; }
+  .ai-fab__icon--light { opacity: 0; }
+  [data-chat-theme="light"] .ai-fab__icon--dark  { opacity: 0; }
+  [data-chat-theme="light"] .ai-fab__icon--light { opacity: 1; }
+
+  /* pulse ring */
+  .ai-fab__ring {
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
+    border: 2px solid var(--color-accent);
+    opacity: 0;
+    animation: aiFabRing 2.5s cubic-bezier(.4,0,.6,1) infinite;
+  }
+  @keyframes aiFabRing {
+    0%   { transform: scale(.85); opacity: .7; }
+    100% { transform: scale(1.4);  opacity: 0; }
+  }
+
+  /* ── Panel ───────────────────────────────────────────── */
+  .ai-panel {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 1.5rem;
+    z-index: 9999;
+    width: 380px;
+    max-height: min(600px, calc(100dvh - 3rem));
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-lg);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+
+    /* closed state */
+    opacity: 0;
+    transform: scale(.85) translateY(30px);
+    pointer-events: none;
+    transition: opacity .35s cubic-bezier(.34,1.56,.64,1),
+                transform .35s cubic-bezier(.34,1.56,.64,1);
+  }
+  .ai-panel--open {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    pointer-events: auto;
+  }
+
+  /* ── Panel header ────────────────────────────────────── */
+  .ai-panel__header {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: .875rem 1rem;
+    background: var(--gradient);
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .ai-panel__avatar-wrap {
+    position: relative;
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+  }
+  .ai-panel__avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    position: absolute;
+    top: 0; left: 0;
+    transition: opacity .3s ease;
+  }
+  .ai-panel__avatar--dark  { opacity: 1; }
+  .ai-panel__avatar--light { opacity: 0; }
+  [data-chat-theme="light"] .ai-panel__avatar--dark  { opacity: 0; }
+  [data-chat-theme="light"] .ai-panel__avatar--light { opacity: 1; }
+
+  .ai-panel__info { flex: 1; min-width: 0; }
+  .ai-panel__name {
+    display: block;
+    font-weight: 700;
+    font-size: .9rem;
+    line-height: 1.2;
+  }
+  .ai-panel__status {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: .72rem;
+    opacity: .9;
+  }
+  .ai-panel__dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: #34d399;
+    display: inline-block;
+    box-shadow: 0 0 6px #34d399;
+  }
+  .ai-panel__close {
+    background: rgba(255,255,255,.15);
+    border: none;
+    border-radius: 50%;
+    width: 32px; height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    cursor: pointer;
+    transition: background .2s;
+    flex-shrink: 0;
+  }
+  .ai-panel__close:hover { background: rgba(255,255,255,.25); }
+
+  /* ── Messages area ───────────────────────────────────── */
+  .ai-panel__messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: .75rem;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
+  }
+  .ai-panel__messages::-webkit-scrollbar { width: 5px; }
+  .ai-panel__messages::-webkit-scrollbar-track { background: transparent; }
+  .ai-panel__messages::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 10px; }
+
+  /* ── Message bubbles ─────────────────────────────────── */
+  .ai-msg {
+    display: flex;
+    align-items: flex-end;
+    gap: .5rem;
+    max-width: 88%;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity .3s ease, transform .3s ease;
+  }
+  .ai-msg--visible { opacity: 1; transform: translateY(0); }
+  .ai-msg--bot { align-self: flex-start; }
+  .ai-msg--user { align-self: flex-end; flex-direction: row-reverse; }
+
+  .ai-msg__avatar {
+    width: 28px; height: 28px;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .ai-msg__avatar-img {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+    position: absolute;
+    top: 0; left: 0;
+    transition: opacity .3s ease;
+  }
+  .ai-msg__avatar-img--dark  { opacity: 1; }
+  .ai-msg__avatar-img--light { opacity: 0; }
+  [data-chat-theme="light"] .ai-msg__avatar-img--dark  { opacity: 0; }
+  [data-chat-theme="light"] .ai-msg__avatar-img--light { opacity: 1; }
+
+  .ai-bubble {
+    padding: .65rem .9rem;
+    border-radius: var(--radius);
+    font-size: .84rem;
+    line-height: 1.55;
+    word-break: break-word;
+  }
+  .ai-msg--bot .ai-bubble {
+    background: var(--color-bg-glass);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+    border-bottom-left-radius: 4px;
+  }
+  .ai-msg--user .ai-bubble {
+    background: linear-gradient(135deg, #3A82FF, #6366f1);
+    color: #fff;
+    border-bottom-right-radius: 4px;
+  }
+
+  .ai-bubble strong { font-weight: 600; }
+  .ai-bubble em { font-style: italic; opacity: .9; }
+  .ai-link {
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .ai-msg--user .ai-link { color: #c7d2fe; }
+
+  /* ── Typing indicator ────────────────────────────────── */
+  .ai-typing {
+    display: flex;
+    gap: 4px;
+    padding: .65rem .9rem;
+    background: var(--color-bg-glass);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    border-bottom-left-radius: 4px;
+  }
+  .ai-typing span {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--color-text-muted);
+    animation: aiBounce 1.2s ease-in-out infinite;
+  }
+  .ai-typing span:nth-child(2) { animation-delay: .15s; }
+  .ai-typing span:nth-child(3) { animation-delay: .3s; }
+  @keyframes aiBounce {
+    0%, 60%, 100% { transform: translateY(0); }
+    30%           { transform: translateY(-6px); }
+  }
+
+  /* ── Quick action chips ──────────────────────────────── */
+  .ai-panel__quick {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem;
+    padding: 0 1rem .75rem;
+    transition: opacity .3s ease, max-height .3s ease;
+    max-height: 200px;
+    overflow: hidden;
+  }
+  .ai-panel__quick--hidden {
+    opacity: 0;
+    max-height: 0;
+    padding-bottom: 0;
+    pointer-events: none;
+  }
+  .ai-chip {
+    padding: .35rem .75rem;
+    border-radius: 20px;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-elevated);
+    color: var(--color-text);
+    font-size: .75rem;
+    cursor: pointer;
+    transition: background .2s, border-color .2s, transform .15s;
+    white-space: nowrap;
+  }
+  .ai-chip:hover {
+    background: var(--color-accent-subtle);
+    border-color: var(--color-accent);
+    transform: translateY(-1px);
+  }
+
+  /* ── Input bar ───────────────────────────────────────── */
+  .ai-panel__input-bar {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .75rem 1rem;
+    border-top: 1px solid var(--color-border);
+    background: var(--color-bg-card);
+    flex-shrink: 0;
+  }
+  .ai-panel__input {
+    flex: 1;
+    background: var(--color-bg-input);
+    border: 1px solid var(--color-border);
+    border-radius: 20px;
+    padding: .55rem .9rem;
+    color: var(--color-text);
+    font-size: .84rem;
+    font-family: var(--font-sans);
+    outline: none;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .ai-panel__input::placeholder { color: var(--color-text-muted); }
+  .ai-panel__input:focus {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px var(--color-focus-ring);
+  }
+  .ai-panel__send {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: var(--gradient);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: transform .15s, box-shadow .2s;
+  }
+  .ai-panel__send:hover {
+    transform: scale(1.08);
+    box-shadow: 0 0 12px var(--color-glow);
+  }
+  .ai-panel__send:active { transform: scale(0.93); }
+
+  /* ── Responsive ──────────────────────────────────────── */
+  @media (max-width: 480px) {
+    .ai-fab {
+      width: 52px;
+      height: 52px;
+      bottom: 1rem;
+      left: 1rem;
+    }
+    .ai-fab__icon { width: 38px; height: 38px; }
+    .ai-panel {
+      left: .5rem;
+      right: .5rem;
+      bottom: .5rem;
+      width: auto;
+      max-height: calc(100dvh - 1rem);
+    }
+  }
+
+  /* Theme transition support */
+  html.theme-transitioning .ai-fab,
+  html.theme-transitioning .ai-panel,
+  html.theme-transitioning .ai-bubble,
+  html.theme-transitioning .ai-chip,
+  html.theme-transitioning .ai-panel__input,
+  html.theme-transitioning .ai-panel__input-bar,
+  html.theme-transitioning .ai-typing {
+    transition: background-color .4s ease, color .4s ease, border-color .4s ease, box-shadow .4s ease !important;
+  }
+</style>

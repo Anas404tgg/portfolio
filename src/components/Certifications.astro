@@ -1,0 +1,270 @@
+---
+/**
+ * Certifications.astro
+ * =====================
+ * Dynamic certifications section with:
+ * - Grouping by issuer/platform
+ * - Accordion for large groups
+ * - Learning path vertical timeline
+ * - Scroll-reveal animations via IntersectionObserver
+ *
+ * Hidden automatically when certifications[] is empty.
+ */
+import { certifications } from '../data/portfolio';
+
+const icons: Record<string, string> = {
+  'award':        '<circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/>',
+  'external-link':'<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+  'chevron-down': '<path d="m6 9 6 6 6-6"/>',
+};
+
+/** Group certifications by issuer */
+function groupByIssuer(certs: typeof certifications) {
+  const map = new Map<string, typeof certifications>();
+  certs.forEach(c => {
+    const group = map.get(c.issuer) || [];
+    group.push(c);
+    map.set(c.issuer, group);
+  });
+  return map;
+}
+
+const grouped = groupByIssuer(certifications);
+const ACCORDION_THRESHOLD = 3;
+---
+
+{certifications.length > 0 && (
+<section id="certifications" class="section">
+  <div class="container">
+    <div class="section__header reveal">
+      <p class="section__label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px">
+          <Fragment set:html={icons['award']} />
+        </svg>
+        Certifications
+      </p>
+      <h2 class="section__title">Credentials & Certificates</h2>
+      <div class="section__divider"></div>
+    </div>
+
+    <!-- Learning path timeline -->
+    <div class="cert-timeline">
+      {certifications.map((cert, i) => (
+        <div class="cert-timeline__item reveal">
+          <div class="cert-timeline__dot-wrap">
+            <div class="cert-timeline__dot"></div>
+          </div>
+          <div class="cert-timeline__card glass-card">
+            <div class="cert-timeline__top">
+              <span class="cert-timeline__date">{cert.date}</span>
+              {i === 0 && <span class="cert-timeline__badge">Latest</span>}
+            </div>
+            <h3 class="cert-timeline__name">{cert.name}</h3>
+            {cert.issuerUrl ? (
+              <a href={cert.issuerUrl} target="_blank" rel="noopener noreferrer" class="cert-timeline__issuer">
+                {cert.issuer}
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><Fragment set:html={icons['external-link']} /></svg>
+              </a>
+            ) : (
+              <p class="cert-timeline__issuer-text">{cert.issuer}</p>
+            )}
+            <div class="cert-timeline__skills">
+              {cert.skills.map(s => <span class="cert-timeline__skill">{s}</span>)}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+
+    <!-- Grouped by issuer with accordion -->
+    {grouped.size > 1 && (
+      <div class="cert-groups reveal">
+        <div class="divider-label"><span>By Platform</span></div>
+        {Array.from(grouped.entries()).map(([issuer, certs]) => (
+          <details class="cert-group glass-card" open={certs.length <= ACCORDION_THRESHOLD}>
+            <summary class="cert-group__header">
+              <span class="cert-group__issuer">{issuer}</span>
+              <span class="cert-group__count">{certs.length} certificate{certs.length > 1 ? 's' : ''}</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="cert-group__chevron"><Fragment set:html={icons['chevron-down']} /></svg>
+            </summary>
+            <div class="cert-group__list">
+              {certs.map(c => (
+                <div class="cert-group__item">
+                  <span class="cert-group__item-name">{c.name}</span>
+                  <span class="cert-group__item-date">{c.date}</span>
+                </div>
+              ))}
+            </div>
+          </details>
+        ))}
+      </div>
+    )}
+  </div>
+</section>
+)}
+
+<style>
+  /* ── Timeline layout ─────────────────────────────────── */
+  .cert-timeline {
+    position: relative;
+    padding-left: 2.5rem;
+  }
+  .cert-timeline::before {
+    content: '';
+    position: absolute;
+    left: 11px;
+    top: 0; bottom: 0;
+    width: 2px;
+    background: var(--color-border);
+  }
+  .cert-timeline__item {
+    position: relative;
+    margin-bottom: 1.5rem;
+  }
+  .cert-timeline__item:last-child { margin-bottom: 0; }
+
+  .cert-timeline__dot-wrap {
+    position: absolute;
+    left: -2.5rem;
+    top: 1.5rem;
+    width: 24px; height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .cert-timeline__dot {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--gradient);
+    box-shadow: 0 0 0 4px var(--color-bg), 0 0 12px var(--color-glow);
+    animation: glow-pulse 3s ease-in-out infinite;
+  }
+
+  .cert-timeline__card { padding: 1.25rem 1.5rem; }
+
+  .cert-timeline__top {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    margin-bottom: .5rem;
+    flex-wrap: wrap;
+  }
+  .cert-timeline__date {
+    padding: .2rem .65rem;
+    border-radius: 999px;
+    background: var(--color-accent-subtle);
+    border: 1px solid var(--color-accent-subtle-border);
+    font-family: var(--font-mono);
+    font-size: .78rem;
+    color: var(--color-text-muted);
+  }
+  .cert-timeline__badge {
+    padding: .15rem .55rem;
+    border-radius: 999px;
+    background: var(--color-success-subtle);
+    border: 1px solid var(--color-success-subtle-border);
+    font-size: .72rem;
+    font-weight: 600;
+    color: var(--color-success);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+  .cert-timeline__name {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--color-text-heading);
+    margin-bottom: .25rem;
+  }
+  .cert-timeline__issuer,
+  .cert-timeline__issuer-text {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    font-size: .85rem;
+    color: var(--color-text-muted);
+    margin-bottom: .5rem;
+  }
+  .cert-timeline__issuer {
+    text-decoration: none;
+    transition: color .2s;
+  }
+  .cert-timeline__issuer:hover { color: var(--color-accent); text-decoration: none; }
+
+  .cert-timeline__skills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem;
+  }
+  .cert-timeline__skill {
+    padding: .15rem .55rem;
+    border-radius: 999px;
+    background: var(--color-accent-subtle);
+    border: 1px solid var(--color-accent-subtle-border);
+    font-size: .72rem;
+    color: var(--color-accent);
+  }
+
+  /* ── Grouped accordion ──────────────────────────────── */
+  .cert-groups { margin-top: 2rem; }
+  .cert-group {
+    margin-bottom: .75rem;
+    padding: 0;
+  }
+  .cert-group__header {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: 1rem 1.25rem;
+    cursor: pointer;
+    list-style: none;
+    font-weight: 600;
+    color: var(--color-text-heading);
+    font-size: .95rem;
+  }
+  .cert-group__header::-webkit-details-marker { display: none; }
+  .cert-group__count {
+    font-size: .75rem;
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    margin-left: auto;
+  }
+  .cert-group__chevron {
+    width: 18px; height: 18px;
+    color: var(--color-text-muted);
+    transition: transform .3s;
+    flex-shrink: 0;
+  }
+  details[open] > .cert-group__header .cert-group__chevron {
+    transform: rotate(180deg);
+  }
+  .cert-group__list {
+    padding: 0 1.25rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: .4rem;
+  }
+  .cert-group__item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: .4rem .5rem;
+    border-radius: var(--radius-sm);
+    transition: background .2s;
+  }
+  .cert-group__item:hover { background: var(--color-link-hover-bg); }
+  .cert-group__item-name {
+    font-size: .88rem;
+    color: var(--color-text);
+  }
+  .cert-group__item-date {
+    font-size: .75rem;
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+  }
+
+  @media (max-width: 768px) {
+    .cert-timeline::before { display: none; }
+    .cert-timeline { padding-left: 0; }
+    .cert-timeline__dot-wrap { display: none; }
+  }
+</style>

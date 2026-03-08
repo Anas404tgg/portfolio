@@ -1,0 +1,126 @@
+---
+/**
+ * LangSelector.astro
+ * ===================
+ * Dropdown language selector with flag + label.
+ * Persists choice in localStorage and triggers page-wide translation.
+ */
+import { LANGS, DEFAULT_LANG } from '../i18n/index';
+---
+
+<div class="lang-sel" id="langSelector">
+  <button class="lang-sel__btn" id="langBtn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Change language">
+    <svg class="lang-sel__globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>
+    </svg>
+    <span class="lang-sel__code" id="langCode">{LANGS[0].code.toUpperCase()}</span>
+  </button>
+  <ul class="lang-sel__menu" id="langMenu" role="listbox" aria-label="Select language">
+    {LANGS.map((l) => (
+      <li class="lang-sel__option" role="option" data-lang={l.code}>
+        <span class="lang-sel__opt-flag">{l.flag}</span>
+        <span class="lang-sel__opt-label">{l.label}</span>
+      </li>
+    ))}
+  </ul>
+</div>
+
+<style is:global>
+  .lang-sel {
+    position: relative;
+    z-index: 100;
+    display: flex !important;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .lang-sel__btn {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: .3rem;
+    width: auto;
+    height: 36px;
+    padding: 0 .55rem;
+    border-radius: 999px;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-elevated);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    font-family: var(--font-sans);
+    transition: color .3s, border-color .3s, background .3s, transform .3s;
+    flex-shrink: 0;
+  }
+  .lang-sel__btn:hover {
+    color: var(--color-accent);
+    border-color: var(--color-accent);
+    transform: scale(1.1);
+    box-shadow: 0 0 16px var(--color-glow);
+  }
+  .lang-sel__btn:active {
+    transform: scale(0.92);
+  }
+  .lang-sel__globe {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+  }
+  .lang-sel__code {
+    font-weight: 700;
+    font-size: .7rem;
+    letter-spacing: .04em;
+  }
+
+  /* Dropdown menu */
+  .lang-sel__menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    min-width: 150px;
+    padding: .4rem 0;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-card);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: var(--shadow-md);
+    list-style: none;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-8px) scale(.96);
+    transition: opacity .2s, transform .2s, visibility .2s;
+  }
+  .lang-sel--open .lang-sel__menu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0) scale(1);
+  }
+
+  .lang-sel__option {
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+    padding: .55rem .9rem;
+    cursor: pointer;
+    font-size: .88rem;
+    color: var(--color-text);
+    transition: background .15s, color .15s;
+  }
+  .lang-sel__option:hover {
+    background: var(--color-link-hover-bg);
+    color: var(--color-accent);
+  }
+  .lang-sel__option[aria-selected="true"] {
+    color: var(--color-accent);
+    font-weight: 600;
+  }
+  .lang-sel__opt-flag {
+    font-size: 1.15rem;
+    line-height: 1;
+  }
+
+  /* RTL adjustments */
+  [dir="rtl"] .lang-sel__menu {
+    right: auto;
+    left: 0;
+  }
+</style>

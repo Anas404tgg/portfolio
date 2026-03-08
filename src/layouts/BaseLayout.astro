@@ -1,0 +1,629 @@
+---
+/**
+ * BaseLayout.astro
+ * ================
+ * Main HTML wrapper providing global styles, decorative background,
+ * scroll-reveal observer, Header and Footer.
+ * The page content is injected via the default <slot />.
+ */
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import BackToTop from '../components/BackToTop.astro';
+import AiAssistant from '../components/AiAssistant.astro';
+import { personalInfo } from '../data/portfolio';
+import { translations, LANGS, RTL_LANGS, DEFAULT_LANG } from '../i18n/index';
+
+const i18nData = JSON.stringify(translations);
+const i18nMeta = JSON.stringify({ langs: LANGS, rtl: RTL_LANGS, default: DEFAULT_LANG });
+
+interface Props {
+  title?: string;
+}
+
+const { title = `${personalInfo.firstName} ${personalInfo.lastName} — Portfolio` } = Astro.props;
+---
+<!doctype html>
+<html lang="en" dir="ltr" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0B0D17" />
+  <script is:inline>
+    (function(){
+      var t=localStorage.getItem('theme')||'dark';
+      document.documentElement.setAttribute('data-theme',t);
+      var m=document.querySelector('meta[name="theme-color"]');
+      if(m)m.setAttribute('content',t==='light'?'#F8FAFC':'#0F172A');
+      /* Language init — before paint */
+      var lang=localStorage.getItem('lang')||'en';
+      var rtl=['ar'];
+      document.documentElement.setAttribute('lang',lang);
+      document.documentElement.setAttribute('dir',rtl.indexOf(lang)!==-1?'rtl':'ltr');
+    })();
+  </script>
+  <meta name="description" content={`Portfolio de ${personalInfo.firstName} ${personalInfo.lastName} — ${personalInfo.title}`} />
+  <title>{title}</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+</head>
+
+<body>
+  <!-- Skip link for accessibility -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <!-- Theme transition overlay — covers the page during swap -->
+  <div id="theme-overlay" aria-hidden="true"></div>
+
+  <!-- Decorative background -->
+  <div class="bg-grid" aria-hidden="true"></div>
+  <div class="bg-orb bg-orb--1" aria-hidden="true"></div>
+  <div class="bg-orb bg-orb--2" aria-hidden="true"></div>
+
+  <Header />
+
+  <main id="main-content">
+    <slot />
+  </main>
+
+  <Footer />
+  <BackToTop />
+  <AiAssistant />
+
+  <!-- Scroll-reveal observer -->
+  <script>
+    (function () {
+      const io = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((e) => {
+            if (e.isIntersecting) {
+              e.target.classList.add('revealed');
+              io.unobserve(e.target);
+            }
+          });
+        },
+        { threshold: 0.12 }
+      );
+      document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
+    })();
+  </script>
+  <script>
+    import { inject } from '@vercel/analytics';
+    inject();
+  </script>
+  <script is:inline>
+    /* Radial glow follows cursor on glass-cards */
+    document.addEventListener('mousemove', function(e) {
+      document.querySelectorAll('.glass-card').forEach(function(card) {
+        var rect = card.getBoundingClientRect();
+        var x = ((e.clientX - rect.left) / rect.width * 100).toFixed(1) + '%';
+        var y = ((e.clientY - rect.top) / rect.height * 100).toFixed(1) + '%';
+        card.style.setProperty('--mouse-x', x);
+        card.style.setProperty('--mouse-y', y);
+      });
+    });
+  </script>
+
+  <!-- i18n client-side translation engine -->
+  <script define:vars={{ i18nData, i18nMeta }}>
+  (function () {
+    const T = JSON.parse(i18nData);
+    const M = JSON.parse(i18nMeta);
+
+    function getLang() {
+      return localStorage.getItem('lang') || M.default;
+    }
+
+    /** Apply translations to all [data-i18n] elements */
+    function applyLang(lang) {
+      const dict = T[lang] || T[M.default];
+      if (!dict) return;
+
+      document.querySelectorAll('[data-i18n]').forEach(function (el) {
+        var key = el.getAttribute('data-i18n');
+        if (dict[key] != null) el.textContent = dict[key];
+      });
+      /* SAFE innerHTML: translation values are developer-controlled strings
+         from src/i18n/*.ts, not user input. Used for keys requiring rich text. */
+      document.querySelectorAll('[data-i18n-html]').forEach(function (el) {
+        var key = el.getAttribute('data-i18n-html');
+        if (dict[key] != null) el.innerHTML = dict[key];
+      });
+      document.querySelectorAll('[data-i18n-placeholder]').forEach(function (el) {
+        var key = el.getAttribute('data-i18n-placeholder');
+        if (dict[key] != null) el.setAttribute('placeholder', dict[key]);
+      });
+      document.querySelectorAll('[data-i18n-aria]').forEach(function (el) {
+        var key = el.getAttribute('data-i18n-aria');
+        if (dict[key] != null) el.setAttribute('aria-label', dict[key]);
+      });
+
+      /* Update HTML lang & dir */
+      var isRtl = M.rtl.indexOf(lang) !== -1;
+      document.documentElement.setAttribute('lang', lang);
+      document.documentElement.setAttribute('dir', isRtl ? 'rtl' : 'ltr');
+
+      /* Update lang selector display */
+      var codeEl = document.getElementById('langCode');
+      if (codeEl) codeEl.textContent = lang.toUpperCase();
+
+      /* Mark active option */
+      document.querySelectorAll('.lang-sel__option').forEach(function(opt) {
+        opt.setAttribute('aria-selected', opt.getAttribute('data-lang') === lang ? 'true' : 'false');
+      });
+
+      /* Dispatch event for other scripts (chatbot etc.) */
+      window.dispatchEvent(new CustomEvent('langchange', { detail: { lang: lang } }));
+    }
+
+    /** Public API for other scripts */
+    window.__i18n = {
+      getLang: getLang,
+      setLang: function (lang) {
+        localStorage.setItem('lang', lang);
+        applyLang(lang);
+      },
+      t: function (key) {
+        var dict = T[getLang()] || T[M.default];
+        return dict[key] || T[M.default][key] || key;
+      },
+      translations: T,
+      meta: M,
+    };
+
+    /* Apply on load */
+    applyLang(getLang());
+
+    /* Language selector toggle logic */
+    var sel = document.getElementById('langSelector');
+    var btn = document.getElementById('langBtn');
+    var menu = document.getElementById('langMenu');
+    if (sel && btn && menu) {
+      btn.addEventListener('click', function () {
+        var open = sel.classList.toggle('lang-sel--open');
+        btn.setAttribute('aria-expanded', String(open));
+      });
+      menu.addEventListener('click', function (e) {
+        var opt = e.target.closest('[data-lang]');
+        if (!opt) return;
+        var lang = opt.getAttribute('data-lang');
+        window.__i18n.setLang(lang);
+        sel.classList.remove('lang-sel--open');
+        btn.setAttribute('aria-expanded', 'false');
+      });
+      document.addEventListener('click', function (e) {
+        if (!sel.contains(e.target)) {
+          sel.classList.remove('lang-sel--open');
+          btn.setAttribute('aria-expanded', 'false');
+        }
+      });
+    }
+  })();
+  </script>
+</body>
+</html>
+
+<!-- ============================================================= -->
+<!--  Global Styles                                                  -->
+<!-- ============================================================= -->
+<style is:global>
+
+  /* ── CSS Custom Properties ─────────────────────────────────── */
+  :root {
+    --font-sans:  'Inter', system-ui, -apple-system, sans-serif;
+    --font-mono:  'JetBrains Mono', ui-monospace, monospace;
+    --radius:     12px;
+    --radius-sm:  8px;
+    --radius-lg:  20px;
+  }
+
+  [data-theme="dark"] {
+    color-scheme: dark;
+    --color-bg:        #0B0D17;
+    --color-bg-card:   #1A1C29;
+    --color-bg-card-hover: #24253B;
+    --color-bg-glass:  rgba(26, 28, 41, 0.65);
+    --color-bg-elevated: rgba(11, 13, 23, 0.55);
+    --color-bg-header: rgba(11, 13, 23, 0.8);
+    --color-bg-header-scroll: rgba(11, 13, 23, 0.95);
+    --color-bg-drawer: #0B0D17;
+    --color-bg-input:  rgba(26, 28, 41, 0.7);
+    --color-bg-footer: rgba(11, 13, 23, 0.9);
+    --color-text:      #F5F5F7;
+    --color-text-heading: #FFFFFF;
+    --color-text-muted:#A0A3B0;
+    --color-primary:   #8B5CF6;
+    --color-accent:    #FF6B6B;
+    --color-accent-hover: #E55A5A;
+    --color-success:   #4ADE80;
+    --color-warning:   #FBBF24;
+    --color-border:    #2C2F44;
+    --color-border-hover: #3C3F57;
+    --color-glow:      rgba(139, 92, 246, 0.25);
+    --color-selection: rgba(255, 107, 107, 0.3);
+    --color-grid-line: rgba(139, 92, 246, 0.05);
+    --color-orb-1:     rgba(255, 107, 107, 0.4);
+    --color-orb-2:     rgba(139, 92, 246, 0.35);
+    --color-link-hover-bg: rgba(255, 107, 107, 0.1);
+    --color-accent-subtle: rgba(255, 107, 107, 0.08);
+    --color-accent-subtle-border: rgba(255, 107, 107, 0.15);
+    --color-accent-glow: rgba(255, 107, 107, 0.3);
+    --color-success-subtle: rgba(74, 222, 128, 0.08);
+    --color-success-subtle-border: rgba(74, 222, 128, 0.2);
+    --color-focus-ring: rgba(255, 107, 107, 0.2);
+    --color-backdrop:  rgba(0, 0, 0, 0.65);
+    --shadow-sm:  0 1px 3px rgba(0,0,0,.4);
+    --shadow-md:  0 4px 20px rgba(0,0,0,.5);
+    --shadow-lg:  0 8px 40px rgba(0,0,0,.6);
+    --shadow-glow:0 0 30px var(--color-glow);
+    --gradient:   linear-gradient(135deg, #8B5CF6, #FF6B6B);
+    --gradient-text: linear-gradient(135deg, #8B5CF6, #FF6B6B, #8B5CF6);
+  }
+
+  [data-theme="light"] {
+    color-scheme: light;
+    --color-bg:        #F8FAFC;
+    --color-bg-card:   #FFFFFF;
+    --color-bg-card-hover: #F1F5F9;
+    --color-bg-glass:  rgba(255, 255, 255, 0.7);
+    --color-bg-elevated: rgba(241, 245, 249, 0.7);
+    --color-bg-header: rgba(248, 250, 252, 0.8);
+    --color-bg-header-scroll: rgba(248, 250, 252, 0.95);
+    --color-bg-drawer: rgb(248, 250, 252);
+    --color-bg-input:  rgba(241, 245, 249, 0.8);
+    --color-bg-footer: rgba(241, 245, 249, 0.9);
+    --color-text:      #1E293B;
+    --color-text-heading: #0F172A;
+    --color-text-muted:#64748B;
+    --color-primary:   #3A82FF;
+    --color-accent:    #3A82FF;
+    --color-accent-hover: #2563EB;
+    --color-success:   #059669;
+    --color-warning:   #d97706;
+    --color-border:    #E2E8F0;
+    --color-border-hover: #CBD5E1;
+    --color-glow:      rgba(58, 130, 255, 0.15);
+    --color-selection: rgba(58, 130, 255, 0.2);
+    --color-grid-line: rgba(58, 130, 255, 0.06);
+    --color-orb-1:     rgba(58, 130, 255, 0.12);
+    --color-orb-2:     rgba(99, 102, 241, 0.08);
+    --color-link-hover-bg: rgba(58, 130, 255, 0.08);
+    --color-accent-subtle: rgba(58, 130, 255, 0.06);
+    --color-accent-subtle-border: rgba(58, 130, 255, 0.12);
+    --color-accent-glow: rgba(58, 130, 255, 0.15);
+    --color-success-subtle: rgba(5, 150, 105, 0.08);
+    --color-success-subtle-border: rgba(5, 150, 105, 0.2);
+    --color-focus-ring: rgba(58, 130, 255, 0.2);
+    --color-backdrop:  rgba(0,0,0,0.35);
+    --shadow-sm:  0 1px 3px rgba(0,0,0,.06);
+    --shadow-md:  0 4px 20px rgba(0,0,0,.08);
+    --shadow-lg:  0 8px 40px rgba(0,0,0,.1);
+    --shadow-glow:0 0 30px var(--color-glow);
+    --gradient:   linear-gradient(135deg, #3A82FF, #6366f1);
+    --gradient-text: linear-gradient(135deg, #3A82FF, #6366f1, #3A82FF);
+  }
+
+  /* ── Theme transition overlay ────────────────────────────────── */
+  /*
+   * Instead of transitioning thousands of elements individually
+   * (which jitters because the browser can't sync all paint frames),
+   * a single full-page overlay fades in, hides the instant theme swap,
+   * then fades out to reveal the new theme. One element, one animation,
+   * perfectly smooth every time.
+   */
+  #theme-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    pointer-events: none;
+    opacity: 0;
+    background: var(--color-bg);
+    transition: none;
+  }
+  #theme-overlay.fade-in {
+    opacity: 1;
+    transition: opacity .18s cubic-bezier(.4, 0, 1, 1);   /* fast cover */
+  }
+  #theme-overlay.fade-out {
+    opacity: 0;
+    transition: opacity .30s cubic-bezier(0, 0, .2, 1);   /* gentle reveal */
+  }
+
+  /* ── Reset & Base ──────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 80px;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background: var(--color-bg);
+    color: var(--color-text);
+    line-height: 1.7;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background: var(--color-selection);
+    color: #fff;
+  }
+
+  img { max-width: 100%; display: block; }
+  a   { color: var(--color-accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* ── Focus-visible ─────────────────────────────────────────── */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+
+  /* ── Skip link ─────────────────────────────────────────────── */
+  .skip-link {
+    position: fixed;
+    top: -100%;
+    left: 1rem;
+    z-index: 10000;
+    padding: .5rem 1rem;
+    background: var(--color-primary);
+    color: #fff;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    transition: top .2s;
+  }
+  .skip-link:focus {
+    top: 1rem;
+  }
+
+  /* ── Decorative background ─────────────────────────────────── */
+  .bg-grid {
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    background-image:
+      linear-gradient(var(--color-grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--color-grid-line) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events: none;
+  }
+
+  .bg-orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(120px);
+    pointer-events: none;
+    z-index: -1;
+    opacity: .35;
+  }
+  .bg-orb--1 {
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, var(--color-orb-1), transparent 70%);
+    top: -10%; left: -5%;
+    animation: drift 20s ease-in-out infinite alternate;
+  }
+  .bg-orb--2 {
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, var(--color-orb-2), transparent 70%);
+    bottom: -10%; right: -5%;
+    animation: drift 25s ease-in-out infinite alternate-reverse;
+  }
+
+  @keyframes drift {
+    0%   { transform: translate(0, 0); }
+    100% { transform: translate(60px, 40px); }
+  }
+
+  /* ── Scroll-reveal ─────────────────────────────────────────── */
+  .reveal {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity .6s ease, transform .6s ease;
+  }
+  .reveal.revealed {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Stagger children */
+  .stagger > .reveal:nth-child(1) { transition-delay: 0s; }
+  .stagger > .reveal:nth-child(2) { transition-delay: .08s; }
+  .stagger > .reveal:nth-child(3) { transition-delay: .16s; }
+  .stagger > .reveal:nth-child(4) { transition-delay: .24s; }
+  .stagger > .reveal:nth-child(5) { transition-delay: .32s; }
+  .stagger > .reveal:nth-child(6) { transition-delay: .4s; }
+  .stagger > .reveal:nth-child(7) { transition-delay: .48s; }
+  .stagger > .reveal:nth-child(8) { transition-delay: .56s; }
+
+  /* Individual stagger classes (for grid items with .reveal) */
+  .stagger-1 { transition-delay: 0s !important; }
+  .stagger-2 { transition-delay: .1s !important; }
+  .stagger-3 { transition-delay: .2s !important; }
+  .stagger-4 { transition-delay: .3s !important; }
+
+  /* Glow-pulse for timeline dots */
+  @keyframes glow-pulse {
+    0%, 100% { box-shadow: 0 0 0 4px var(--color-bg), 0 0 12px var(--color-glow); }
+    50%      { box-shadow: 0 0 0 4px var(--color-bg), 0 0 20px var(--color-glow); }
+  }
+
+  /* ── Container ─────────────────────────────────────────────── */
+  .container {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+  }
+
+  /* ── Section spacing ───────────────────────────────────────── */
+  .section {
+    padding: 6rem 0;
+  }
+
+  .section__header {
+    text-align: center;
+    margin-bottom: 4rem;
+  }
+
+  .section__label {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    font-family: var(--font-mono);
+    font-size: .8rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--color-accent);
+    margin-bottom: .75rem;
+  }
+
+  .section__title {
+    font-size: clamp(1.8rem, 4vw, 2.6rem);
+    font-weight: 800;
+    line-height: 1.2;
+    color: var(--color-text-heading);
+  }
+
+  .section__divider {
+    width: 60px;
+    height: 3px;
+    background: var(--gradient);
+    border-radius: 3px;
+    margin: 1rem auto 0;
+  }
+
+  /* ── Glassmorphism card ────────────────────────────────────── */
+  .glass-card {
+    background: var(--color-bg-glass);
+    backdrop-filter: blur(16px) saturate(1.6);
+    -webkit-backdrop-filter: blur(16px) saturate(1.6);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    transition: border-color .3s, box-shadow .3s, transform .3s;
+    position: relative;
+    overflow: hidden;
+  }
+  .glass-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--gradient);
+    opacity: 0;
+    transition: opacity .3s;
+  }
+  .glass-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), var(--color-glow), transparent 40%);
+    opacity: 0;
+    transition: opacity .35s;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .glass-card:hover {
+    border-color: var(--color-border-hover);
+    box-shadow: var(--shadow-md), 0 0 20px -6px var(--color-glow);
+    transform: translateY(-4px);
+  }
+  .glass-card:hover::before {
+    opacity: 1;
+  }
+  .glass-card:hover::after {
+    opacity: .12;
+  }
+
+  /* ── Gradient text helper ──────────────────────────────────── */
+  .gradient-text {
+    background: var(--gradient-text);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: gradient-shift 4s linear infinite;
+  }
+
+  @keyframes gradient-shift {
+    0%   { background-position: 0% center; }
+    100% { background-position: 200% center; }
+  }
+
+  /* ── Divider label ─────────────────────────────────────────── */
+  .divider-label {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 2.5rem 0 1.5rem;
+  }
+  .divider-label::before,
+  .divider-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--color-border);
+  }
+  .divider-label span {
+    font-family: var(--font-mono);
+    font-size: .75rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+  }
+
+  /* ── Responsive ────────────────────────────────────────────── */
+  @media (max-width: 768px) {
+    .section {
+      padding: 4rem 0;
+    }
+    .section__header {
+      margin-bottom: 2.5rem;
+    }
+    .container {
+      padding: 0 1rem;
+    }
+  }
+
+  /* ── RTL support ───────────────────────────────────────────── */
+  [dir="rtl"] {
+    direction: rtl;
+    text-align: right;
+  }
+  [dir="rtl"] .section__header {
+    text-align: center;
+  }
+  [dir="rtl"] .section__label {
+    flex-direction: row-reverse;
+  }
+  [dir="rtl"] .timeline {
+    padding-left: 0;
+    padding-right: 2.5rem;
+  }
+  [dir="rtl"] .timeline::before {
+    left: auto;
+    right: 11px;
+  }
+  [dir="rtl"] .timeline__dot-wrap {
+    left: auto;
+    right: -2.5rem;
+  }
+  [dir="rtl"] .hero__actions,
+  [dir="rtl"] .hero__social {
+    justify-content: flex-start;
+  }
+  [dir="rtl"] .skip-link {
+    left: auto;
+    right: 50%;
+    transform: translateX(50%) translateY(-120%);
+  }
+  [dir="rtl"] .skip-link:focus {
+    transform: translateX(50%) translateY(0);
+  }
+</style>

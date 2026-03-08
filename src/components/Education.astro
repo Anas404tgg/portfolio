@@ -1,0 +1,191 @@
+---
+/**
+ * Education.astro
+ * ================
+ * Vertical timeline with gradient dots, pulsing glow,
+ * "Latest" badge on first entry, and institution links.
+ */
+import { education } from '../data/portfolio';
+
+const externalLinkIcon = '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>';
+---
+
+<section id="education" class="section">
+  <div class="container">
+    <div class="section__header reveal">
+      <p class="section__label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px">
+          <path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/>
+        </svg>
+        <span data-i18n="edu.label">Education</span>
+      </p>
+      <h2 class="section__title" data-i18n="edu.title">Academic Journey</h2>
+      <div class="section__divider"></div>
+    </div>
+
+    <div class="timeline">
+      {education.map((edu, i) => (
+        <div class="timeline__item reveal">
+          <!-- Dot -->
+          <div class="timeline__dot-wrap">
+            <div class="timeline__dot"></div>
+          </div>
+
+          <!-- Card -->
+          <div class="timeline__card glass-card">
+            <div class="timeline__top">
+              <span class="timeline__period" data-i18n={`edu.${i}.period`}>{edu.period}</span>
+              {i === 0 && <span class="timeline__badge-latest" data-i18n="edu.latest">Latest</span>}
+            </div>
+            <h3 class="timeline__degree" data-i18n={`edu.${i}.degree`}>{edu.degree}</h3>
+            <p class="timeline__field" data-i18n={`edu.${i}.field`}>{edu.field}</p>
+            {edu.institutionUrl ? (
+              <a href={edu.institutionUrl} target="_blank" rel="noopener noreferrer" class="timeline__institution">
+                <span data-i18n={`edu.${i}.institution`}>{edu.institution}</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="timeline__ext-icon">
+                  <Fragment set:html={externalLinkIcon} />
+                </svg>
+              </a>
+            ) : (
+              <p class="timeline__institution-text" data-i18n={`edu.${i}.institution`}>{edu.institution}</p>
+            )}
+            <p class="timeline__desc" data-i18n={`edu.${i}.desc`}>{edu.description}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  /* ── Timeline layout ────────────────────────────────── */
+  .timeline {
+    position: relative;
+    padding-left: 2.5rem;
+  }
+
+  /* Vertical line */
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 11px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--color-border);
+  }
+
+  .timeline__item {
+    position: relative;
+    margin-bottom: 2rem;
+  }
+  .timeline__item:last-child { margin-bottom: 0; }
+
+  /* ── Dot ─────────────────────────────────────────────── */
+  .timeline__dot-wrap {
+    position: absolute;
+    left: -2.5rem;
+    top: 1.5rem;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .timeline__dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--gradient);
+    box-shadow: 0 0 0 4px var(--color-bg), 0 0 12px var(--color-glow);
+    animation: glow-pulse 3s ease-in-out infinite;
+  }
+  @keyframes glow-pulse {
+    0%, 100% { box-shadow: 0 0 0 4px var(--color-bg), 0 0 12px var(--color-glow); }
+    50%      { box-shadow: 0 0 0 4px var(--color-bg), 0 0 24px var(--color-glow); }
+  }
+
+  /* ── Card ────────────────────────────────────────────── */
+  .timeline__card {
+    padding: 1.5rem;
+  }
+
+  .timeline__top {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    margin-bottom: .75rem;
+    flex-wrap: wrap;
+  }
+
+  .timeline__period {
+    display: inline-block;
+    padding: .2rem .65rem;
+    border-radius: 999px;
+    background: var(--color-accent-subtle);
+    border: 1px solid var(--color-accent-subtle-border);
+    font-family: var(--font-mono);
+    font-size: .78rem;
+    color: var(--color-text-muted);
+  }
+
+  .timeline__badge-latest {
+    display: inline-block;
+    padding: .15rem .55rem;
+    border-radius: 999px;
+    background: var(--color-success-subtle);
+    border: 1px solid var(--color-success-subtle-border);
+    font-size: .72rem;
+    font-weight: 600;
+    color: var(--color-success);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+
+  .timeline__degree {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--color-text-heading);
+    margin-bottom: .25rem;
+  }
+
+  .timeline__field {
+    font-size: .9rem;
+    color: var(--color-accent);
+    margin-bottom: .5rem;
+  }
+
+  .timeline__institution,
+  .timeline__institution-text {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    font-size: .85rem;
+    color: var(--color-text-muted);
+    margin-bottom: .75rem;
+  }
+  .timeline__institution {
+    text-decoration: none;
+    transition: color .2s;
+  }
+  .timeline__institution:hover {
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+  .timeline__ext-icon {
+    width: 14px; height: 14px;
+  }
+
+  .timeline__desc {
+    font-size: .88rem;
+    color: var(--color-text-muted);
+    line-height: 1.7;
+  }
+
+  /* ── Responsive ─────────────────────────────────────── */
+  @media (max-width: 768px) {
+    .timeline::before { display: none; }
+    .timeline { padding-left: 0; }
+    .timeline__dot-wrap { display: none; }
+  }
+</style>
