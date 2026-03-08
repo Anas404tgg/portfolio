@@ -530,7 +530,6 @@ const icons: Record<string, string> = {
   .drawer__backdrop {
     position: absolute;
     inset: 0;
-    /* Fallback bg for browsers without backdrop-filter */
     background: var(--color-backdrop, rgba(0, 0, 0, 0.5));
     opacity: 0;
     transition: opacity .3s cubic-bezier(.4,0,.2,1);
@@ -545,26 +544,30 @@ const icons: Record<string, string> = {
 
   .drawer__panel {
     position: absolute;
-    top: 0; right: 0; bottom: 0;
+    top: 0;
+    right: 0;
     width: 300px;
     max-width: 80vw;
-    background: var(--color-bg-drawer);
+    height: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
+    background-color: var(--color-bg-drawer);
     border-left: 1px solid var(--color-border);
     display: flex;
     flex-direction: column;
     justify-content: center;
     padding: 2rem;
     overflow-y: auto;
-    transform: translateX(40px);
-    opacity: 0;
-    will-change: transform, opacity;
+    box-sizing: border-box;
+    transform: translateX(100%);
+    visibility: hidden;
     transition:
-      transform .45s cubic-bezier(.4,0,.2,1),
-      opacity .35s cubic-bezier(.4,0,.2,1);
+      transform .4s cubic-bezier(.4,0,.2,1),
+      visibility .4s;
   }
   .drawer--open .drawer__panel {
     transform: translateX(0);
-    opacity: 1;
+    visibility: visible;
   }
 
   .drawer__nav {
